@@ -30,3 +30,10 @@ class MetricDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = MetricData
         fields = '__all__'
+
+class InterfaceTrafficSerializer(serializers.ModelSerializer):
+    device_name = serializers.CharField(source='device.name', read_only=True, default='')
+    interface_name = serializers.CharField(source='interface.name', read_only=True, default='')
+    class Meta:
+        model = InterfaceTraffic
+        fields = '__all__'

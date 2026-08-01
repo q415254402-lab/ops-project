@@ -8,7 +8,7 @@ from datetime import timedelta
 from apps.performance.models import MetricDefinition, CollectTask, MetricThreshold, MetricData, InterfaceTraffic
 from apps.performance.serializers import (
     MetricDefinitionSerializer, CollectTaskSerializer,
-    MetricThresholdSerializer, MetricDataSerializer,
+    MetricThresholdSerializer, MetricDataSerializer, InterfaceTrafficSerializer,
 )
 
 class MetricDefinitionViewSet(viewsets.ModelViewSet):
@@ -64,3 +64,23 @@ class MetricDataViewSet(viewsets.ReadOnlyModelViewSet):
             'max': round(data['max'] or 0, 2),
             'min': round(data['min'] or 0, 2),
         })
+
+
+class InterfaceTrafficViewSet(viewsets.ReadOnlyModelViewSet):
+    """接口流量数据（只读，供流量图使用）"""
+    queryset = InterfaceTraffic.objects.select_related('device', 'interface').all()
+    serializer_class = InterfaceTrafficSerializer
+    filterset_fields = ['device', 'interface']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        start = self.request.query_params.get('start')
+        end = self.request.query_params.get('end')
+        if start:
+            qs = qs.filter(timestamp__gte=start)
+        if end:
+            qs = qs.filter(timestamp__lte=end)
+        device_id = self.request.query_params.get('device')
+        if device_id:
+            qs = qs.filter(device_id=device_id)
+        return qs.order_by('-timestamp')[:1000]
