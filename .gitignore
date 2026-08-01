@@ -1,0 +1,23 @@
+# === Python 缓存 / 虚拟环境 ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# === 环境变量 / 密钥 ===
+.env
+*.local
+*.secret
+
+# === IDE / 系统 ===
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# === 日志 ===
+*.log
+
+# 注意：保留 static/esight/（已构建前端产物）与 templates/index.html，不要忽略

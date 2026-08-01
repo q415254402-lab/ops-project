@@ -1,0 +1,50 @@
+# eSight 统一运维管理系统 - OpsAny 应用配置
+# 用于 OpsAny 开发中心的生产打包部署
+
+app:
+  # 应用基本信息
+  name: esight
+  version: 1.0.0
+  description: eSight 统一运维管理系统
+
+  # 语言和框架
+  language: Python
+  framework: Django
+
+  # 入口配置
+  entry:
+    wsgi: wsgi.application
+    manage: manage.py
+
+  # 依赖
+  dependencies:
+    - requirements.txt
+
+  # 数据库
+  database:
+    engine: mysql
+    name: esight
+
+  # Celery 配置
+  celery:
+    broker: redis
+    workers:
+      - name: default
+        concurrency: 4
+      - name: alarm
+        concurrency: 2
+      - name: performance
+        concurrency: 4
+      - name: discovery
+        concurrency: 2
+
+  # 端口
+  port: 8000
+
+  # 静态文件
+  static:
+    - static/
+
+  # 模板
+  templates:
+    - templates/
