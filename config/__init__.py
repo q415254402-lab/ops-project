@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
+# 使用 PyMySQL 替代 mysqlclient（纯 Python，离线构建机无需编译 MySQL 开发库）。
+# 必须在 Django 加载前注册，避免运行时报 "did you install mysqlclient"。
+try:
+    import pymysql
+    pymysql.install_as_MySQLdb()
+except ImportError:
+    pass
+
 __all__ = ['celery_app', 'RUN_VER', 'APP_CODE', 'SECRET_KEY', 'BK_URL', 'BASE_DIR']
 
 import os

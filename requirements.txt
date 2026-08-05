@@ -8,9 +8,9 @@ django-redis==5.2.0
 gunicorn==21.2.0
 
 # === 数据库驱动 ===
-mysqlclient==2.1.1
-# 若 MySQL 客户端未安装，可改用纯 Python 驱动：
-# PyMySQL==1.1.0
+# mysqlclient 需本地有 MySQL 开发库(编译)，离线构建机易失败；改用纯 Python 驱动
+PyMySQL==1.1.0
+# 若构建机已配 MySQL 客户端开发库，可改回 mysqlclient==2.1.1
 
 # === Celery ===
 celery==5.3.6
@@ -18,8 +18,8 @@ redis==4.5.4
 
 # === SNMP 采集 ===
 pysnmp==4.4.12
-# easysnmp 依赖系统 net-snmp 开发库，若环境未安装可注释掉
-easysnmp==0.2.5
+# easysnmp 依赖系统 net-snmp 开发库（离线构建机无，必失败），已移除；SNMP 主采集走 pysnmp
+
 
 # === SSH / 网络设备采集 ===
 paramiko==3.4.0
