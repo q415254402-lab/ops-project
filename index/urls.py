@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-from django.conf.urls import url
+from django.urls import re_path
 from .views import IndexView
 
 urlpatterns = [
-    url(r'^', IndexView.as_view(), name='index'),
+    re_path(r'^', IndexView.as_view(), name='index'),
 ]

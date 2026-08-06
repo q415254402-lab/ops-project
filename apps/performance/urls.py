@@ -1,4 +1,4 @@
-from django.conf.urls import url, include
+from django.urls import re_path, include
 from rest_framework.routers import DefaultRouter
 from apps.performance.api.perf_views import (
     MetricDefinitionViewSet, CollectTaskViewSet,
@@ -12,4 +12,4 @@ router.register(r'thresholds', MetricThresholdViewSet)
 router.register(r'data', MetricDataViewSet, basename='metric-data')
 router.register(r'interface-traffic', InterfaceTrafficViewSet, basename='interface-traffic')
 
-urlpatterns = [url(r'^', include(router.urls))]
+urlpatterns = [re_path(r'^', include(router.urls))]

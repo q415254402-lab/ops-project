@@ -86,8 +86,8 @@ SITE_URL = {'SITE_URL': ''}
 # 跨域配置（本地前端 dev server 跨域调试用）
 # ============================================================
 CORS_ALLOW_CREDENTIALS = True
-CORS_ORIGIN_ALLOW_ALL = True
-CORS_ORIGIN_WHITELIST = ()
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = ()
 
 CORS_ALLOW_METHODS = (
     'DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT', 'VIEW',

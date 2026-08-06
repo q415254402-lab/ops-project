@@ -1,4 +1,4 @@
-from django.conf.urls import url, include
+from django.urls import re_path, include
 from rest_framework.routers import DefaultRouter
 from apps.config_management.api.config_views import (
     ConfigBackupViewSet, ConfigTemplateViewSet,
@@ -12,4 +12,4 @@ router.register(r'compliance/rules', ComplianceRuleViewSet)
 router.register(r'compliance/results', ComplianceCheckResultViewSet)
 router.register(r'batch-jobs', BatchJobViewSet)
 
-urlpatterns = [url(r'^', include(router.urls))]
+urlpatterns = [re_path(r'^', include(router.urls))]

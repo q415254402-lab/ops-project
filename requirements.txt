@@ -1,10 +1,10 @@
-# === Django 核心（注意：urls.py 使用了 django.conf.urls.url，需 Django < 4.0）===
-Django==3.2.25
-djangorestframework==3.14.0
-django-filter==21.1
-django-cors-headers==3.13.0
-django-celery-beat==2.5.0
-django-redis==5.2.0
+# === Django 核心（已升级到 4.2 LTS 以兼容 Python 3.12；urls.py 改用 re_path 替代已移除的 url()）===
+Django>=4.2,<5.0
+djangorestframework>=3.15,<4.0
+django-filter>=23.5,<25.0
+django-cors-headers>=4.0,<5.0
+django-celery-beat>=2.6,<3.0
+django-redis>=5.4,<6.0
 gunicorn==21.2.0
 
 # === 数据库驱动 ===
