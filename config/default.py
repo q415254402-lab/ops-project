@@ -30,6 +30,11 @@ BK_URL = os.getenv('BK_URL') or os.getenv('BK_PAAS_HOST') or 'https://192.168.99
 # （直接调平台登录 /accounts/is_login/），get_user 由 shim 直连平台 /accounts/get_user/。
 ESB_SDK_NAME = 'esb_shim'
 
+# 平台注入的 BK_PAAS2_INNER_URL 可能是不可达的外部域名（如 dev.opsany.cn），
+# 导致 verify_url 校验 bk_token 时连接超时、登录挂起；强制内部登录地址与外部一致
+# （走 openresty 到平台 login 服务，实测可达 /login/accounts/is_login|get_user/）。
+BK_LOGIN_INNER_URL = (BK_LOGIN_URL or BK_URL + '/login').rstrip('/')
+
 # 平台 nginx 未剥离 /t/<app_code>/ 前缀时，SITE_URL(=BKPAAS_SUB_PATH) 与请求 path
 # 叠加导致登录回调 c_url 出现 /t/esight/t/esight/... 无限叠加；置空以使用请求自身 path。
 SITE_URL = ''
