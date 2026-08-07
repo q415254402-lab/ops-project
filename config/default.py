@@ -52,7 +52,8 @@ FORCE_SCRIPT_NAME = ''
 # SCRIPT_NAME、不剥前缀），Django 收到的 PATH_INFO 带前缀导致 API/后台路由全部
 # 落到 catch-all 返回 SPA index.html。将本中间件置于最前：PATH_INFO 剥前缀供
 # URL 解析，SCRIPT_NAME 设为前缀保持 request.path（登录回调 c_url）不变。
-MIDDLEWARE = ['middleware.StripSitePrefixMiddleware'] + MIDDLEWARE  # noqa: F405
+# 注意：blueapps 默认 MIDDLEWARE 是 tuple，须用元组拼接。
+MIDDLEWARE = ('middleware.StripSitePrefixMiddleware',) + MIDDLEWARE  # noqa: F405
 
 # ============================================================
 # 时区 / 语言 / 编码
