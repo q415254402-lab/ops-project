@@ -13,13 +13,20 @@ RUN_MODE = 'STAGING'
 
 STATIC_URL = '/static/'
 
+DEBUG = False
+
 # ============================================================
-# 测试环境数据库设置
+# 引入全局配置
+# ============================================================
+from config.default import *  # noqa
+
+# ============================================================
+# 测试环境数据库设置（按 OpsAny 新手指南「配置修改」章节）
 # ============================================================
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': APP_CODE,
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.mysql'),
+        'NAME': os.getenv('DB_NAME', APP_CODE),
         'USER': os.getenv('DB_USER', 'esight'),
         'PASSWORD': os.getenv('DB_PASSWORD', 'your_password'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
@@ -31,14 +38,9 @@ DATABASES = {
     },
 }
 
-BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-
-DEBUG = False
-
-# ============================================================
-# 引入全局配置
-# ============================================================
-from config.default import *  # noqa
+# 测试环境消息队列：优先环境变量，否则默认本地 Redis
+BROKER_URL = os.getenv('BK_BROKER_URL') or os.getenv('CELERY_BROKER_URL') or 'redis://localhost:6379/0'
+CELERY_BROKER_URL = BROKER_URL
 
 # 预发布环境覆盖项
 REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = ['rest_framework.renderers.JSONRenderer']
