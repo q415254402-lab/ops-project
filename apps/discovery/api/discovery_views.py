@@ -38,6 +38,10 @@ def dispatch_task(task_func, *args, **kwargs):
 
     本地开发常常没起 Redis/Celery，退化执行能保证功能可用。
     返回 'celery' 或 'thread'。
+
+    注意：任务可能用 ``@shared_task(bind=True)`` 定义（首个参数 self），
+    退化线程执行时不能直接 ``task_func(*args, **kwargs)``（self 会被位置参数占据），
+    必须用 ``task_func.apply(args=args, kwargs=kwargs)`` 由 Celery 注入 self。
     """
     try:
         task_func.delay(*args, **kwargs)
@@ -48,7 +52,7 @@ def dispatch_task(task_func, *args, **kwargs):
 
         def _runner():
             try:
-                task_func(*args, **kwargs)
+                task_func.apply(args=args, kwargs=kwargs)
             except Exception:
                 logger.exception('本地线程执行任务失败')
 

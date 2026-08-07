@@ -293,8 +293,6 @@ def _import_single_host(host, task=None):
 
 def _save_lldp_to_interfaces(device, neighbors):
     """把 LLDP 邻居信息写入本端接口字段"""
-    from apps.cmdb.models import Interface
-
     if not neighbors:
         return
     local_ifaces = {i.name: i for i in device.interfaces.all()}
@@ -306,7 +304,6 @@ def _save_lldp_to_interfaces(device, neighbors):
         iface.lldp_remote_device = (nb.get('remote_system') or nb.get('remote_chassis') or '')[:128]
         iface.lldp_remote_port = (nb.get('remote_port') or '')[:128]
         iface.save(update_fields=['lldp_remote_device', 'lldp_remote_port'])
-        _ = Interface  # 保持导入语义清晰
 
 
 def _guess_subnet(ip):

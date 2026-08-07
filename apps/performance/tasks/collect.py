@@ -3,6 +3,7 @@
 """
 import logging
 from celery import shared_task
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.performance import models
@@ -111,7 +112,7 @@ def _check_threshold(device, metric, value):
         metric=metric,
         enabled=True,
     ).filter(
-        models.Q(device=device) | models.Q(device__isnull=True)
+        Q(device=device) | Q(device__isnull=True)
     )
 
     for threshold in thresholds:

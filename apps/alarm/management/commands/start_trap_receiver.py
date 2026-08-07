@@ -23,7 +23,7 @@ class Command(BaseCommand):
         from pysnmp.entity.rfc3413 import ntfrcv
         from apps.alarm.tasks.receiver import process_trap
 
-        trap_port = int(getattr(settings, 'ESIGHT', {}).get('TRAP_PORT', 162))
+        trap_port = int(getattr(settings, 'ESIGHT_CONFIG', {}).get('TRAP_PORT', 162))
 
         snmp_engine = snmp_engine_mod.SnmpEngine()
 

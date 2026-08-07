@@ -1,26 +1,27 @@
 """
 告警管理 API
 """
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.utils import timezone
 
-from apps.alarm.models import Alarm, AlarmDefinition, AlarmHistory
+from apps.alarm.models import Alarm, AlarmDefinition
 from apps.alarm.serializers import (
     AlarmSerializer, AlarmListSerializer,
-    AlarmDefinitionSerializer, AlarmHistorySerializer,
+    AlarmDefinitionSerializer,
 )
 
 
 class AlarmViewSet(viewsets.ModelViewSet):
     """告警管理 ViewSet"""
     queryset = Alarm.objects.select_related('device', 'alarm_definition').all()
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'severity', 'device']
     search_fields = ['title', 'detail']
+    ordering_fields = ['last_occurred_at', 'created_at', 'severity']
     ordering = ['-last_occurred_at']
 
     def get_serializer_class(self):

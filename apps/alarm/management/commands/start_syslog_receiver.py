@@ -40,7 +40,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         from apps.alarm.tasks.receiver import process_syslog
 
-        syslog_port = int(getattr(settings, 'ESIGHT', {}).get('SYSLOG_PORT', 514))
+        syslog_port = int(getattr(settings, 'ESIGHT_CONFIG', {}).get('SYSLOG_PORT', 514))
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
