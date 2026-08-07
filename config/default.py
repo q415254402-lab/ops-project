@@ -46,6 +46,15 @@ SITE_URL = ''
 FORCE_SCRIPT_NAME = ''
 
 # ============================================================
+# 中间件：平台应用前缀剥离
+# ============================================================
+# 容器 nginx 将 /t/<app_code>/ 或 /o/<app_code>/ 前缀原样转发给 uwsgi（不设
+# SCRIPT_NAME、不剥前缀），Django 收到的 PATH_INFO 带前缀导致 API/后台路由全部
+# 落到 catch-all 返回 SPA index.html。将本中间件置于最前：PATH_INFO 剥前缀供
+# URL 解析，SCRIPT_NAME 设为前缀保持 request.path（登录回调 c_url）不变。
+MIDDLEWARE = ['middleware.StripSitePrefixMiddleware'] + MIDDLEWARE  # noqa: F405
+
+# ============================================================
 # 时区 / 语言 / 编码
 # ============================================================
 LANGUAGE_CODE = 'zh-hans'
