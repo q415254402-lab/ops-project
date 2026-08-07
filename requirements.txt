@@ -17,6 +17,9 @@ gunicorn==21.2.0
 # mysqlclient 需本地有 MySQL 开发库(编译)，离线构建机易失败；改用纯 Python 驱动
 PyMySQL==1.1.0
 # 若构建机已配 MySQL 客户端开发库，可改回 mysqlclient==2.1.1
+# 凭据加密字段（CMDB 凭据模型用 django_cryptography 加密存储；缺失则 migrate 报
+# ModuleNotFoundError: No module named 'django_cryptography'）
+django-cryptography==1.1
 
 # === Celery ===
 celery==5.3.6

@@ -2,18 +2,25 @@
 """
 eSight 全局配置（OpsAny 后端框架）
 
-本文件被 config/dev.py、config/prod.py、config/stag.py 引入，承载与运行环境
-无关的通用配置。环境相关配置（数据库、Redis、BK_TOKEN、上传目录等）仍由各
-环境配置文件负责。
-
-统一按照《OpsAny 开发手册》的 SaaS 后端框架组织：
-- 应用基本信息（APP_CODE / SECRET_KEY / BK_URL / BASE_DIR / RUN_VER）见 config/__init__.py
-- 各环境在导入 blueapps 框架补丁后，再 ``from config.default import *`` 引入本文件
+按《OpsAny 开发手册》的 SaaS 后端框架组织：
+- config/__init__.py 提供 APP_CODE / SECRET_KEY / BK_URL / BASE_DIR / RUN_VER / get_env_or_raise
+- 本文件先 ``from blueapps.conf.default_settings import *`` 引入 blueapps 标准默认配置
+  （INSTALLED_APPS / MIDDLEWARE / TEMPLATES / AUTH_USER_MODEL / BK_URL / RUN_VER /
+  STATIC_URL 等），再追加 eSight 业务配置。
+- config/dev.py 在导入 blueapps 框架补丁（settings_open_saas）后，再
+  ``from config.default import *`` 引入本文件。
 """
 import logging
 import os
 
-from config import APP_CODE, BASE_DIR  # noqa: F401
+from blueapps.conf.default_settings import *  # noqa: F401,F403
+
+# 重新固定为项目自身值（blueapps 默认可能来自 environ，需以本项目 __init__ 为准）
+from config import APP_CODE, BASE_DIR, RUN_VER, BK_URL  # noqa: F401
+
+# OpsAny open SaaS 运行版本与平台地址（部署时由平台注入 BK_URL / BK_PAAS_HOST）
+RUN_VER = 'open'
+BK_URL = os.getenv('BK_URL') or os.getenv('BK_PAAS_HOST') or 'https://192.168.99.26'
 
 # ============================================================
 # 时区 / 语言 / 编码
@@ -23,7 +30,7 @@ TIME_ZONE = 'Asia/Shanghai'
 USE_I18N = True
 USE_TZ = True
 
-# Django 3.2 推荐的主键自增类型，避免系统警告
+# Django 推荐的主键自增类型，避免系统警告
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ============================================================
@@ -31,15 +38,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ============================================================
 STATIC_URL = '/static/'
 
-# ============================================================
 # 主路由（融合部署：SPA 入口 + 业务 API + 平台 base API）
-# ============================================================
 ROOT_URLCONF = 'urls'
 
 # ============================================================
-# 业务 App（在 blueapps 框架 App 基础上追加）
+# 业务 App（在 blueapps 默认 INSTALLED_APPS 基础上追加）
+# 注意：blueapps 默认已包含 bkoauth / blueapps.account 等；
+# settings_open_saas 补丁会自动移除 bkoauth（open 环境不需要）。
 # ============================================================
-INSTALLED_APPS += [  # noqa: F405
+INSTALLED_APPS = INSTALLED_APPS + (  # noqa: F405
     'apps.cmdb',
     'apps.discovery',
     'apps.topology',
@@ -50,7 +57,60 @@ INSTALLED_APPS += [  # noqa: F405
     'apps.report',
     'apps.system',
     'apps.dashboard',
-]
+)
+
+# ============================================================
+# 数据库（兼容 OpsAny 注入的 MYSQL_* / BKPAAS_MYSQL_*，本地开发兜底 localhost）
+# ============================================================
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.getenv('MYSQL_NAME') or os.getenv('BKPAAS_MYSQL_NAME') or APP_CODE,
+        'USER': os.getenv('MYSQL_USER') or os.getenv('BKPAAS_MYSQL_USER') or os.getenv('DB_USER', 'esight'),
+        'PASSWORD': os.getenv('MYSQL_PASSWORD') or os.getenv('BKPAAS_MYSQL_PASSWORD') or os.getenv('DB_PASSWORD', 'your_password'),
+        'HOST': os.getenv('MYSQL_HOST') or os.getenv('BKPAAS_MYSQL_HOST') or os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('MYSQL_PORT') or os.getenv('BKPAAS_MYSQL_PORT') or os.getenv('DB_PORT', '3306'),
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
+    }
+}
+
+# ============================================================
+# Redis / Celery 消息队列
+# ============================================================
+REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+REDIS_PORT = os.getenv('REDIS_PORT', '6379')
+REDIS_DB = os.getenv('REDIS_DB', '0')
+REDIS_LOCATION = 'redis://%s:%s/%s' % (REDIS_HOST, REDIS_PORT, REDIS_DB)
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': REDIS_LOCATION,
+        'OPTIONS': {'CLIENT_CLASS': 'django_redis.client.DefaultClient'},
+    },
+    # blueapps.account 使用 caches['login_db']，必须保留该别名
+    'login_db': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': REDIS_LOCATION,
+        'OPTIONS': {'CLIENT_CLASS': 'django_redis.client.DefaultClient'},
+    },
+    'db': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    },
+    'dummy': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    },
+    'locmem': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    },
+}
+
+BROKER_URL = os.getenv('CELERY_BROKER_URL', REDIS_LOCATION)
+CELERY_BROKER_URL = BROKER_URL
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_LOCATION)
 
 # ============================================================
 # DRF 配置（统一认证 / 权限 / 异常处理）
@@ -75,7 +135,7 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
-    'EXCEPTION_HANDLER': 'component.exception_handler.custom_exception_handler',
+    'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',
 }
 
 # ============================================================
@@ -117,14 +177,14 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(LOG_DIR, f'{APP_CODE}-django.log'),
+            'filename': os.path.join(LOG_DIR, '%s-django.log' % APP_CODE),
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
             'formatter': 'verbose',
         },
         'alarm_file': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(LOG_DIR, f'{APP_CODE}-alarm.log'),
+            'filename': os.path.join(LOG_DIR, '%s-alarm.log' % APP_CODE),
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 10,
             'formatter': 'verbose',
@@ -150,8 +210,7 @@ LOGGING = {
 
 # ============================================================
 # Celery 定时任务（采集 / LLDP / 拓扑 / 设备同步 / 发现）
-# 若 blueapps 框架已定义 CELERY_BEAT_SCHEDULE，则在其基础上追加；
-# 否则新建。
+# 在 blueapps 框架已定义的 CELERY_BEAT_SCHEDULE 基础上追加
 # ============================================================
 _ESIGHT_BEAT = {
     'run-all-collect-tasks': {
@@ -182,8 +241,6 @@ except NameError:
 
 # ============================================================
 # Celery 启用声明（按 OpsAny 新手指南「配置修改」章节）
-# - IS_USE_CELERY: 启用 celery（平台据此拉起 worker/beat）
-# - CELERY_IMPORTS: 声明业务 celery 任务模块，确保 worker 能加载任务
 # ============================================================
 IS_USE_CELERY = True
 

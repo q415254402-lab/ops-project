@@ -9,7 +9,22 @@ try:
 except ImportError:
     pass
 
-__all__ = ['celery_app', 'RUN_VER', 'APP_CODE', 'SECRET_KEY', 'BK_URL', 'BASE_DIR']
+
+def get_env_or_raise(key):
+    """读取环境变量，缺失则直接报错退出。
+
+    供 blueapps 框架补丁 ``blueapps.patch.settings_open_saas`` 使用：
+    OpsAny 平台部署时会注入 ``BKPAAS_APP_ID`` / ``BKPAAS_APP_SECRET`` 等必填变量，
+    补丁通过本函数获取这些变量，缺失即抛 ``RuntimeError``。
+    """
+    import os
+    val = os.getenv(key)
+    if not val:
+        raise RuntimeError("env %s is required" % key)
+    return val
+
+
+__all__ = ['celery_app', 'RUN_VER', 'APP_CODE', 'SECRET_KEY', 'BK_URL', 'BASE_DIR', 'get_env_or_raise']
 
 import os
 
