@@ -6,6 +6,26 @@ import os
 import sys
 import django
 
+# ──────────────────────────────────────────────────────────────
+# blueapps 框架在加载 settings 时会强制要求以下环境变量
+# （APP_ID / APP_SECRET 等，平时由 OpsAny 平台在 uWSGI/supervisor
+#  启动前注入）。seed 脚本是独立进程，没有平台注入，这里补全
+#  最小默认值，使其能正常加载 settings 并完成数据初始化。
+# 仅用于 seed 进程，不影响线上运行（线上由平台注入真实值）。
+# ──────────────────────────────────────────────────────────────
+for _k, _v in {
+    'APP_ID': 'esight',
+    'APP_SECRET': 'esight-secret',
+    'BKPAAS_APP_ID': 'esight',
+    'BKPAAS_APP_SECRET': 'esight-secret',
+    'APP_CODE': 'esight',
+    'APP_TOKEN': 'esight-secret',
+    'SECRET_KEY': 'esight-secret',
+    'BK_PAAS_HOST': os.getenv('BK_URL', 'https://192.168.99.31'),
+    'BK_URL': os.getenv('BK_PAAS_HOST', 'https://192.168.99.31'),
+}.items():
+    os.environ.setdefault(_k, _v)
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings')
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 django.setup()
