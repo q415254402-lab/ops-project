@@ -56,6 +56,7 @@ CORS_ALLOW_HEADERS = (
 # CELERY_BEAT_SCHEDULE / LOGGING / BROKER_URL 等）
 # ============================================================
 from config.default import *  # noqa
+from config.default import _first_env  # noqa: F401  (private helper, not exported by `import *`)
 
 # ============================================================
 # 开发环境数据库（按 OpsAny 新手指南「配置修改」章节）
