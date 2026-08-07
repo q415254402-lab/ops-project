@@ -22,6 +22,6 @@ Thumbs.db
 
 # === collectstatic 输出 / 本地预演产物（不入库）===
 staticfiles/
-_local_check.sqlite3
+*.sqlite3
 
 # 注意：保留 static/esight/（已构建前端产物）与 templates/index.html，不要忽略
