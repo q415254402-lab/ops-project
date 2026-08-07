@@ -33,6 +33,10 @@ USE_TZ = True
 # Django 推荐的主键自增类型，避免系统警告
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# blueapps.account 的 migration 0002_init_superuser 会读取该配置，
+# 把列出的平台用户名提升为超级管理员（OpsAny 默认平台管理员为 admin）。
+INIT_SUPERUSER = ["admin"]
+
 # ============================================================
 # 模板与静态资源
 # ============================================================
@@ -66,16 +70,44 @@ INSTALLED_APPS = INSTALLED_APPS + (  # noqa: F405
 )
 
 # ============================================================
-# 数据库（兼容 OpsAny 注入的 MYSQL_* / BKPAAS_MYSQL_*，本地开发兜底 localhost）
+# 数据库（兼容 OpsAny 平台注入或控制台手动配置的环境变量）
+# OpsAny 官方只对内置应用注入 MYSQL_HOST/MYSQL_PORT/MYSQL_PASSWORD；
+# 自定义应用(esight)需在控制台「应用详情-环境变量」自行配置，本处以全候选名读取：
+#   NAME: MYSQL_NAME/DB_NAME/BKAPP_DB_NAME → 默认 APP_CODE
+#   USER: MYSQL_USER/DB_USER/BKAPP_DB_USERNAME → 默认 opsany
+#   PASS: MYSQL_PASSWORD/DB_PASSWORD/BKAPP_DB_PASSWORD
+#   HOST: MYSQL_HOST/DB_HOST/BKAPP_DB_HOST/MYSQL_SERVER_IP → 默认 localhost
+#   PORT: MYSQL_PORT/DB_PORT/BKAPP_DB_PORT → 默认 3306
+# 若 HOST 全部缺失（未配置），部署日志会打印醒目提示，避免误连 localhost。
 # ============================================================
+import sys as _sys
+
+
+def _first_env(*names, default=''):
+    for _n in names:
+        _v = os.getenv(_n)
+        if _v:
+            return _v
+    return default
+
+
+_DB_HOST_ENVS = ('MYSQL_HOST', 'DB_HOST', 'BKAPP_DB_HOST', 'BKPAAS_MYSQL_HOST', 'MYSQL_SERVER_IP')
+_DB_HOST = _first_env(*_DB_HOST_ENVS, default='localhost')
+if _DB_HOST == 'localhost':
+    _sys.stderr.write(
+        "\n[esight][WARNING] 未检测到数据库环境变量(%s)。"
+        "请在 OpsAny 控制台 esight 应用详情-环境变量中配置 DB 变量(如 MYSQL_HOST/MYSQL_PORT/"
+        "MYSQL_USER/MYSQL_PASSWORD/MYSQL_NAME)，并先在平台 MySQL 中建好 esight 库，否则将尝试连接 localhost。\n" % '/'.join(_DB_HOST_ENVS)
+    )
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('MYSQL_NAME') or os.getenv('BKPAAS_MYSQL_NAME') or APP_CODE,
-        'USER': os.getenv('MYSQL_USER') or os.getenv('BKPAAS_MYSQL_USER') or os.getenv('DB_USER', 'esight'),
-        'PASSWORD': os.getenv('MYSQL_PASSWORD') or os.getenv('BKPAAS_MYSQL_PASSWORD') or os.getenv('DB_PASSWORD', 'your_password'),
-        'HOST': os.getenv('MYSQL_HOST') or os.getenv('BKPAAS_MYSQL_HOST') or os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('MYSQL_PORT') or os.getenv('BKPAAS_MYSQL_PORT') or os.getenv('DB_PORT', '3306'),
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.mysql'),
+        'NAME': _first_env('MYSQL_NAME', 'DB_NAME', 'BKAPP_DB_NAME', 'BKPAAS_MYSQL_NAME', default=APP_CODE),
+        'USER': _first_env('MYSQL_USER', 'DB_USER', 'BKAPP_DB_USERNAME', 'BKPAAS_MYSQL_USER', default='opsany'),
+        'PASSWORD': _first_env('MYSQL_PASSWORD', 'DB_PASSWORD', 'BKAPP_DB_PASSWORD', 'BKPAAS_MYSQL_PASSWORD', default=''),
+        'HOST': _DB_HOST,
+        'PORT': _first_env('MYSQL_PORT', 'DB_PORT', 'BKAPP_DB_PORT', 'BKPAAS_MYSQL_PORT', default='3306'),
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
@@ -86,10 +118,14 @@ DATABASES = {
 # ============================================================
 # Redis / Celery 消息队列
 # ============================================================
-REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
-REDIS_PORT = os.getenv('REDIS_PORT', '6379')
-REDIS_DB = os.getenv('REDIS_DB', '0')
-REDIS_LOCATION = 'redis://%s:%s/%s' % (REDIS_HOST, REDIS_PORT, REDIS_DB)
+REDIS_HOST = _first_env('REDIS_HOST', 'BKAPP_REDIS_HOST', default='localhost')
+REDIS_PORT = _first_env('REDIS_PORT', 'BKAPP_REDIS_PORT', default='6379')
+REDIS_DB = _first_env('REDIS_DB', 'BKAPP_REDIS_DB', default='0')
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD') or os.getenv('BKAPP_REDIS_PASSWORD') or ''
+if REDIS_PASSWORD:
+    REDIS_LOCATION = 'redis://:%s@%s:%s/%s' % (REDIS_PASSWORD, REDIS_HOST, REDIS_PORT, REDIS_DB)
+else:
+    REDIS_LOCATION = 'redis://%s:%s/%s' % (REDIS_HOST, REDIS_PORT, REDIS_DB)
 
 CACHES = {
     'default': {
