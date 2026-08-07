@@ -3,6 +3,9 @@
 
 # === Django 核心（已升级到 4.2 LTS 以兼容 Python 3.12；urls.py 改用 re_path 替代已移除的 url()）===
 Django>=4.2,<5.0
+# uwsgi 服务器：平台只在系统 Python 预装（/usr/local/lib/python3.12），venv 里没有；
+# 显式装入 venv 保证 paas-agent "start app server" 阶段能找到 uwsgi，避免 Job Fail
+uwsgi==2.0.28
 # blueapps 是 OpsAny/蓝鲸 PaaS 基础框架；该 OpsAny 实例未在应用 venv 自动注入，
 # 需在此显式声明由 pip 安装，否则 migrate 时报 ModuleNotFoundError: No module named 'blueapps'
 blueapps>=4.0,<5.0

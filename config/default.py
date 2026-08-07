@@ -47,6 +47,9 @@ STATIC_URL = '/static/'
 # STATIC_ROOT 为 collectstatic 目标（whitenoise 按 STATIC_URL 提供）。
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+# 该 OpsAny paas-agent 部署流程不执行 collectstatic（staticfiles/ 目录为空），
+# 开启 finders 模式让 whitenoise 直接从 STATICFILES_DIRS(static/esight) 提供前端产物
+WHITENOISE_USE_FINDERS = True
 
 # 主路由（融合部署：SPA 入口 + 业务 API）
 ROOT_URLCONF = 'urls'
