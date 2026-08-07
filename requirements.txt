@@ -3,9 +3,10 @@
 
 # === Django 核心（已升级到 4.2 LTS 以兼容 Python 3.12；urls.py 改用 re_path 替代已移除的 url()）===
 Django>=4.2,<5.0
-# uwsgi 服务器：平台只在系统 Python 预装（/usr/local/lib/python3.12），venv 里没有；
-# 显式装入 venv 保证 paas-agent "start app server" 阶段能找到 uwsgi，避免 Job Fail
-uwsgi==2.0.28
+# uwsgi 服务器：paas-agent 的 supervisor 硬编码从 venv 调 uwsgi(Envs/<app>/bin/uwsgi)，
+# 但本平台 venv 为 --system-site-packages 模式，系统已装 2.0.28 导致 pip 跳过、venv 里没有 uwsgi → 启动报
+# "esight_uwsgi: ERROR (no such file)"。改用 2.0.27（系统未装）强制装入 venv，生成 venv/bin/uwsgi。
+uwsgi==2.0.27
 # blueapps 是 OpsAny/蓝鲸 PaaS 基础框架；该 OpsAny 实例未在应用 venv 自动注入，
 # 需在此显式声明由 pip 安装，否则 migrate 时报 ModuleNotFoundError: No module named 'blueapps'
 blueapps>=4.0,<5.0
