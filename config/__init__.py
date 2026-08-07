@@ -49,7 +49,7 @@ APP_CODE = os.getenv('APP_CODE', 'esight')
 SECRET_KEY = os.getenv('SECRET_KEY') or os.getenv('APP_TOKEN') or 'change-me-to-your-app-token'
 
 # OpsAny 平台地址
-# ⚠️ 部署前必须修改为你的 OpsAny 平台地址（本实例为 https://192.168.99.26）
+# ⚠️ 部署前必须修改为你的 OpsAny 平台地址（本实例为 https://192.168.99.31）
 # 兼容 BK_URL 与 BK_PAAS_HOST 两种变量名。
 BK_URL = os.getenv('BK_URL') or os.getenv('BK_PAAS_HOST') or 'https://your-opsany-domain.com'
 

@@ -20,7 +20,7 @@ from config import APP_CODE, BASE_DIR, RUN_VER, BK_URL  # noqa: F401
 
 # OpsAny open SaaS 运行版本与平台地址（部署时由平台注入 BK_URL / BK_PAAS_HOST）
 RUN_VER = 'open'
-BK_URL = os.getenv('BK_URL') or os.getenv('BK_PAAS_HOST') or 'https://192.168.99.26'
+BK_URL = os.getenv('BK_URL') or os.getenv('BK_PAAS_HOST') or 'https://192.168.99.31'
 
 # ============================================================
 # 时区 / 语言 / 编码
