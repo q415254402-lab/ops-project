@@ -31,9 +31,14 @@ BK_URL = os.getenv('BK_URL') or os.getenv('BK_PAAS_HOST') or 'https://192.168.99
 ESB_SDK_NAME = 'esb_shim'
 
 # 平台注入的 BK_PAAS2_INNER_URL 可能是不可达的外部域名（如 dev.opsany.cn），
-# 导致 verify_url 校验 bk_token 时连接超时、登录挂起；强制内部登录地址与外部一致
-# （走 openresty 到平台 login 服务，实测可达 /login/accounts/is_login|get_user/）。
-BK_LOGIN_INNER_URL = (BK_LOGIN_URL or BK_URL + '/login').rstrip('/')
+# 导致 verify_url 校验 bk_token 时连接超时、登录挂起；内部登录地址优先取外部可达的
+# BKPAAS_LOGIN_URL / BK_PAAS2_URL（实测 192.168.99.31/login 下 /accounts/is_login|get_user/ 可达）。
+# 注意：本文件被 blueapps patch 单独导入，不能引用 patch 才设置的变量（如 BK_LOGIN_URL）。
+BK_LOGIN_INNER_URL = (
+    os.getenv('BKPAAS_LOGIN_URL') or (os.getenv('BK_PAAS2_URL') or BK_URL).rstrip('/') + '/login'
+).rstrip('/')
+if 'opsany.cn' in BK_LOGIN_INNER_URL or not BK_LOGIN_INNER_URL.startswith('http'):
+    BK_LOGIN_INNER_URL = BK_URL.rstrip('/') + '/login'
 
 # 平台 nginx 未剥离 /t/<app_code>/ 前缀时，SITE_URL(=BKPAAS_SUB_PATH) 与请求 path
 # 叠加导致登录回调 c_url 出现 /t/esight/t/esight/... 无限叠加；置空以使用请求自身 path。
