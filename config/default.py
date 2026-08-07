@@ -56,6 +56,10 @@ USE_TZ = True
 # Django 推荐的主键自增类型，避免系统警告
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# blueapps 模板上下文处理器 blue_settings 读取该配置（静态资源版本号，模板拼
+# 接资源 URL ?v=；缺失会报 'Settings' object has no attribute 'STATIC_VERSION'）
+STATIC_VERSION = os.getenv('STATIC_VERSION', '1.0')
+
 # blueapps.account 的 migration 0002_init_superuser 会读取该配置，
 # 把列出的平台用户名提升为超级管理员（OpsAny 默认平台管理员为 admin）。
 INIT_SUPERUSER = ["admin"]
