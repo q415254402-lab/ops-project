@@ -22,9 +22,6 @@ urlpatterns = [
     re_path(r'^api/v1/system/', include('apps.system.urls')),
     re_path(r'^api/v1/dashboard/', include('apps.dashboard.urls')),
 
-    # OpsAny 框架基础 API（菜单、导航、消息、用户信息等）
-    re_path(r'^api/base/v0_1/', include('base.urls')),
-
     # 平台入口（前端 SPA 入口页面）
     re_path(r'^', include('index.urls')),
 ]

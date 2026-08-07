@@ -38,7 +38,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ============================================================
 STATIC_URL = '/static/'
 
-# 主路由（融合部署：SPA 入口 + 业务 API + 平台 base API）
+# 融合部署产物：前端构建输出到 static/esight/（SPA 静态资源）与
+# templates/index.html（SPA 入口）。STATICFILES_DIRS 让 collectstatic 能收集到，
+# STATIC_ROOT 为 collectstatic 目标（whitenoise 按 STATIC_URL 提供）。
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+
+# 主路由（融合部署：SPA 入口 + 业务 API）
 ROOT_URLCONF = 'urls'
 
 # ============================================================
@@ -108,9 +114,10 @@ CACHES = {
     },
 }
 
-BROKER_URL = os.getenv('CELERY_BROKER_URL', REDIS_LOCATION)
+# 消息队列：优先平台注入的 BK_BROKER_URL（OpsAny 常为 rabbitmq），否则 CELERY_BROKER_URL，最后 redis 兜底
+BROKER_URL = os.getenv('BK_BROKER_URL') or os.getenv('CELERY_BROKER_URL') or REDIS_LOCATION
 CELERY_BROKER_URL = BROKER_URL
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_LOCATION)
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND') or os.getenv('BK_BROKER_URL') or REDIS_LOCATION
 
 # ============================================================
 # DRF 配置（统一认证 / 权限 / 异常处理）
