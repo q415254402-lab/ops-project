@@ -23,6 +23,19 @@ RUN_VER = 'open'
 BK_URL = os.getenv('BK_URL') or os.getenv('BK_PAAS_HOST') or 'https://192.168.99.31'
 
 # ============================================================
+# 登录相关（平台不注入 blueking.component，ESB SDK 不可用）
+# ============================================================
+# ESB SDK 指向项目内 shim（esb_shim/）：blueapps 登录校验 bk_token 时，
+# shim 的 is_login 抛 NotImplementedError → blueapps 自动 fallback 到 verify_url
+# （直接调平台登录 /accounts/is_login/），get_user 由 shim 直连平台 /accounts/get_user/。
+ESB_SDK_NAME = 'esb_shim'
+
+# 平台 nginx 未剥离 /t/<app_code>/ 前缀时，SITE_URL(=BKPAAS_SUB_PATH) 与请求 path
+# 叠加导致登录回调 c_url 出现 /t/esight/t/esight/... 无限叠加；置空以使用请求自身 path。
+SITE_URL = ''
+FORCE_SCRIPT_NAME = ''
+
+# ============================================================
 # 时区 / 语言 / 编码
 # ============================================================
 LANGUAGE_CODE = 'zh-hans'
