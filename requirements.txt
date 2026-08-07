@@ -1,3 +1,6 @@
+# === 强制使用国内镜像（覆盖平台默认的已停服豆瓣源 pypi.douban.com；若清华不通可换 https://mirrors.aliyun.com/pypi/simple/）===
+--index-url https://pypi.tuna.tsinghua.edu.cn/simple/
+
 # === Django 核心（已升级到 4.2 LTS 以兼容 Python 3.12；urls.py 改用 re_path 替代已移除的 url()）===
 Django>=4.2,<5.0
 djangorestframework>=3.15,<4.0
