@@ -25,3 +25,7 @@ staticfiles/
 *.sqlite3
 
 # 注意：保留 static/esight/（已构建前端产物）与 templates/index.html，不要忽略
+# === 本地 seed 临时环境 / 数据库备份 ===
+_seedenv/
+*.sqlite3.bak
+*.sqlite3-*
