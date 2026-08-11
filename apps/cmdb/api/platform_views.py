@@ -3,8 +3,14 @@
 平台管控薄代理 API —— eSight 前端调用，转发到 OpsAny 管控平台(control)。
 
 原则：eSight 不维护第二套设备/厂商/类型数据，全部只读平台。
-前端 baseURL=/t/esight/api/v1，本模块挂载于 /api/v1/platform/。
+前端 baseURL=/t/esight/api/v1，本模块挂载于 /api/v1/cmdb/platform/。
+
+注意：薄代理转发到平台时不需要 eSight 的 CSRF（平台走 bk_token 会话鉴权），
+所有 POST/PUT/DELETE 视图都加 @csrf_exempt 跳过 DRF CSRF 检查（否则 axios 不带
+csrftoken 会被 eSight 自己 403）。
 """
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -25,6 +31,11 @@ class _BaseProxy(APIView):
         )
 
 
+def _csrf_exempt_view(view_class):
+    """类视图 csrf_exempt 装饰器（应用所有方法）"""
+    return method_decorator(csrf_exempt, name='dispatch')(view_class)
+
+
 class NetworkEquipmentListProxy(_BaseProxy):
     """设备列表（平台已纳管设备）"""
 
@@ -36,6 +47,7 @@ class NetworkEquipmentListProxy(_BaseProxy):
             return self._err(exc)
 
 
+@_csrf_exempt_view
 class NetworkEquipmentSaveProxy(_BaseProxy):
     """添加/编辑设备（POST/PUT network-equipment/）"""
 
@@ -54,6 +66,7 @@ class NetworkEquipmentSaveProxy(_BaseProxy):
             return self._err(exc)
 
 
+@_csrf_exempt_view
 class NetworkEquipmentDeleteProxy(_BaseProxy):
     """删除设备（DELETE network-equipment/）"""
 
@@ -87,6 +100,7 @@ class NetworkFromCMDBProxy(_BaseProxy):
             return self._err(exc)
 
 
+@_csrf_exempt_view
 class NetworkEquipmentTestProxy(_BaseProxy):
     """连接测试（SNMP/SSH/Telnet 分协议）"""
 
@@ -98,6 +112,7 @@ class NetworkEquipmentTestProxy(_BaseProxy):
             return self._err(exc)
 
 
+@_csrf_exempt_view
 class NetworkEquipmentPingProxy(_BaseProxy):
     """Ping 测试"""
 
