@@ -145,3 +145,8 @@ def get_network_groups(request=None):
 def get_zc_models(request=None):
     """资产模型（get-zc-model）"""
     return call_api('get-zc-model/', request=request)
+
+
+def get_controllers(request=None):
+    """控制器列表（controller/?data=all，返回 id/name/type/proxy_url 等）"""
+    return call_api('controller/', params={'data': 'all'}, request=request)

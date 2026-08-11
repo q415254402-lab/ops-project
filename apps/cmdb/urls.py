@@ -15,7 +15,7 @@ from .api.platform_views import (
     NetworkEquipmentListProxy, NetworkFromCMDBProxy,
     NetworkEquipmentTestProxy, NetworkEquipmentPingProxy,
     NetworkEquipmentSaveProxy, NetworkEquipmentDeleteProxy, NetworkEquipmentFlushProxy,
-    EquipmentTypeProxy, NetworkTypeProxy, NetworkGroupProxy, ZcModelProxy,
+    EquipmentTypeProxy, NetworkTypeProxy, NetworkGroupProxy, ZcModelProxy, ControllerProxy,
 )
 
 router = DefaultRouter()
@@ -45,4 +45,5 @@ urlpatterns = [
     path('platform/network-type/', NetworkTypeProxy.as_view()),
     path('platform/network-group/', NetworkGroupProxy.as_view()),
     path('platform/zc-model/', ZcModelProxy.as_view()),
+    path('platform/controller/', ControllerProxy.as_view()),
 ]

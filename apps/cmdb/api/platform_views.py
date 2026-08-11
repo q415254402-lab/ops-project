@@ -166,3 +166,14 @@ class ZcModelProxy(_BaseProxy):
             return self._ok(data)
         except Exception as exc:  # noqa: BLE001
             return self._err(exc)
+
+
+class ControllerProxy(_BaseProxy):
+    """控制器列表（连接测试/保存设备必带 controller_id）"""
+
+    def get(self, request):
+        try:
+            data = platform_proxy.get_controllers(request=request)
+            return self._ok(data)
+        except Exception as exc:  # noqa: BLE001
+            return self._err(exc)
