@@ -9,22 +9,44 @@ SEVERITY_ORDER = ['critical', 'major', 'minor']
 
 
 class DashboardOverviewView(APIView):
-    """Dashboard 总览 API"""
+    """Dashboard 总览 API
+
+    数据源策略（用户拍板：完全复刻 control + 薄代理调平台，少维护一套数据）：
+    - 设备统计 → 从管控平台(control)读（network-equipment-all），不读 eSight 本地设备表
+    - 告警统计/趋势 → eSight 本地（control 没有告警，属 eSight 增量能力）
+    """
+
     def get(self, request):
-        from apps.cmdb.models import Device
         from apps.alarm.models import Alarm
+        from apps.cmdb.services import platform_proxy
 
         now = timezone.now()
-        devices = Device.objects.all()
         alarms = Alarm.objects.filter(status='active')
 
-        # 设备统计
-        total = devices.count()
-        by_status = dict(devices.values_list('status').annotate(c=Count('id')).values_list('status', 'c'))
-        by_type = list(devices.values('device_type__name').annotate(count=Count('id')).order_by('-count'))
-        by_manufacturer = list(devices.values('manufacturer__name').annotate(count=Count('id')).order_by('-count'))
+        # ── 设备统计：薄代理读平台 ──
+        device_total = 0
+        device_by_type = []
+        device_brands = []
+        device_snmp_ok = 0
+        try:
+            plat = platform_proxy.get_network_equipments(request=request) or []
+            device_total = len(plat)
+            type_counter = {}
+            brand_counter = {}
+            for d in plat:
+                et = (d.get('equipment_type') or {}).get('name') or (d.get('equipment_type') or {}).get('code') or '未知'
+                type_counter[et] = type_counter.get(et, 0) + 1
+                brand = d.get('device_type') or '未知'
+                brand_counter[brand] = brand_counter.get(brand, 0) + 1
+                if d.get('snmp_state') == 'normal':
+                    device_snmp_ok += 1
+            device_by_type = [{'device_type__name': k, 'count': v} for k, v in sorted(type_counter.items(), key=lambda x: -x[1])]
+            device_brands = [{'manufacturer__name': k, 'count': v} for k, v in sorted(brand_counter.items(), key=lambda x: -x[1])]
+        except Exception as exc:  # noqa: BLE001 —— 平台不可用时设备统计为 0，不阻塞 Dashboard
+            import logging
+            logging.getLogger('app').warning('[dashboard] 平台设备统计失败: %s', exc)
 
-        # 告警统计
+        # ── 告警统计（eSight 本地） ──
         alarm_by_severity = dict(alarms.values_list('severity').annotate(c=Count('id')).values_list('severity', 'c'))
         recent_alarms = Alarm.objects.filter(
             first_occurred_at__gte=now - timedelta(hours=24)
@@ -50,12 +72,12 @@ class DashboardOverviewView(APIView):
 
         return Response({
             'device': {
-                'total': total,
-                'online': by_status.get('online', 0),
-                'offline': by_status.get('offline', 0),
-                'maintenance': by_status.get('maintenance', 0),
-                'by_type': by_type,
-                'by_manufacturer': by_manufacturer,
+                'total': device_total,
+                'online': device_snmp_ok,
+                'offline': max(0, device_total - device_snmp_ok),
+                'maintenance': 0,
+                'by_type': device_by_type,
+                'by_manufacturer': device_brands,
             },
             'alarm': {
                 'total_active': alarms.count(),

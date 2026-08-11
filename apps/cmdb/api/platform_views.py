@@ -5,12 +5,13 @@
 原则：eSight 不维护第二套设备/厂商/类型数据，全部只读平台。
 前端 baseURL=/t/esight/api/v1，本模块挂载于 /api/v1/cmdb/platform/。
 
-注意：薄代理转发到平台时不需要 eSight 的 CSRF（平台走 bk_token 会话鉴权），
-所有 POST/PUT/DELETE 视图都加 @csrf_exempt 跳过 DRF CSRF 检查（否则 axios 不带
-csrftoken 会被 eSight 自己 403）。
+CSRF 处理（重要，2026-08-11 实测修复）：
+- DRF 的 SessionAuthentication.enforce_csrf() 在视图 dispatch 内部强制 CSRF 检查，
+  它不认 Django 的 csrf_exempt 标志（之前 method_decorator(csrf_exempt) 无效，POST 仍 403）。
+- 正确做法：子类化 SessionAuthentication 并禁用 enforce_csrf，
+  薄代理视图用它（平台走 bk_token 会话鉴权，eSight 的 CSRF 无意义）。
 """
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
+from rest_framework.authentication import SessionAuthentication
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,8 +19,16 @@ from rest_framework.views import APIView
 from apps.cmdb.services import platform_proxy
 
 
+class CSRFExemptSessionAuthentication(SessionAuthentication):
+    """禁用 CSRF 的 SessionAuthentication（薄代理专用）"""
+
+    def enforce_csrf(self, request):
+        return  # 跳过 DRF 的 CSRF 强制检查
+
+
 class _BaseProxy(APIView):
     """薄代理基类：捕获平台错误，统一返回 {code, message, data}"""
+    authentication_classes = [CSRFExemptSessionAuthentication]
 
     def _ok(self, data):
         return Response({'code': 200, 'message': 'success', 'data': data})
@@ -29,11 +38,6 @@ class _BaseProxy(APIView):
             {'code': 500, 'message': str(exc), 'data': None},
             status=status.HTTP_502_BAD_GATEWAY,
         )
-
-
-def _csrf_exempt_view(view_class):
-    """类视图 csrf_exempt 装饰器（应用所有方法）"""
-    return method_decorator(csrf_exempt, name='dispatch')(view_class)
 
 
 class NetworkEquipmentListProxy(_BaseProxy):
@@ -47,7 +51,6 @@ class NetworkEquipmentListProxy(_BaseProxy):
             return self._err(exc)
 
 
-@_csrf_exempt_view
 class NetworkEquipmentSaveProxy(_BaseProxy):
     """添加/编辑设备（POST/PUT network-equipment/）"""
 
@@ -66,7 +69,6 @@ class NetworkEquipmentSaveProxy(_BaseProxy):
             return self._err(exc)
 
 
-@_csrf_exempt_view
 class NetworkEquipmentDeleteProxy(_BaseProxy):
     """删除设备（DELETE network-equipment/）"""
 
@@ -100,7 +102,6 @@ class NetworkFromCMDBProxy(_BaseProxy):
             return self._err(exc)
 
 
-@_csrf_exempt_view
 class NetworkEquipmentTestProxy(_BaseProxy):
     """连接测试（SNMP/SSH/Telnet 分协议）"""
 
@@ -112,7 +113,6 @@ class NetworkEquipmentTestProxy(_BaseProxy):
             return self._err(exc)
 
 
-@_csrf_exempt_view
 class NetworkEquipmentPingProxy(_BaseProxy):
     """Ping 测试"""
 
