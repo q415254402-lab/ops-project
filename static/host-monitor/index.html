@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>主机监控 - eSight</title>
+<style>
+  body { background: #f0f2f5; margin: 0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; }
+  .hm-header { background: #fff; padding: 12px 24px; box-shadow: 0 1px 4px rgba(0,21,41,.08); display: flex; justify-content: space-between; align-items: center; }
+  .hm-header h1 { font-size: 18px; margin: 0; color: rgba(0,0,0,.85); font-weight: 500; }
+  .hm-header .sub { color: rgba(0,0,0,.45); font-size: 13px; margin-left: 12px; }
+  .hm-stats { display: flex; gap: 16px; padding: 16px 24px 0; }
+  .hm-stat-card { flex: 1; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .hm-stat-card .num { font-size: 28px; font-weight: 500; }
+  .hm-stat-card .lbl { color: rgba(0,0,0,.45); font-size: 13px; margin-top: 4px; }
+  .hm-charts { display: flex; gap: 16px; padding: 16px 24px; }
+  .hm-chart-card { flex: 1; background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .hm-chart-card h3 { font-size: 14px; color: rgba(0,0,0,.85); margin: 0 0 12px; font-weight: 500; }
+  .hm-bottom { display: flex; gap: 16px; padding: 0 24px 24px; }
+  .hm-table-card { flex: 1.5; background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .hm-table-card h3 { font-size: 14px; color: rgba(0,0,0,.85); margin: 0 0 12px; font-weight: 500; }
+  .hm-table { width: 100%; border-collapse: collapse; }
+  .hm-table th, .hm-table td { padding: 8px 10px; text-align: left; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+  .hm-table th { color: rgba(0,0,0,.45); font-weight: 500; background: #fafafa; }
+  .hm-table td.host { color: #1890ff; cursor: pointer; }
+  .hm-pill { display:inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+  .hm-pill.on { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .hm-pill.off { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+  .hm-pill.alarm { background: #fffbe6; color: #faad14; border: 1px solid #ffe58f; }
+  .hm-loading { text-align: center; padding: 60px; color: rgba(0,0,0,.45); }
+  .hm-refresh { color: #1890ff; cursor: pointer; font-size: 13px; }
+  /* 2026-08-17：统计卡可点击 + 详细视图 */
+  .hm-stat-card { cursor: pointer; transition: box-shadow .2s, transform .2s; }
+  .hm-stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); transform: translateY(-2px); }
+  .hm-detail { background: #fff; border-radius: 8px; border: 1px solid #f0f0f0; margin: 16px 24px; padding: 16px; }
+  .hm-detail-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .hm-detail-head h3 { margin: 0; font-size: 15px; color: rgba(0,0,0,.85); font-weight: 500; }
+  .hm-detail-head a { color: #1890ff; margin-right: 12px; cursor: pointer; font-size: 13px; }
+  .hm-detail-head a.active { font-weight: 600; }
+  .hm-back { color: #1890ff; cursor: pointer; font-size: 13px; }
+  .hm-tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; margin-right: 4px; }
+  .hm-tag.on { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .hm-tag.off { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+  .hm-tag.mid { background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; }
+  .hm-pri-0 { color:#999 } .hm-pri-1 { color:#52c41a } .hm-pri-2 { color:#faad14 } .hm-pri-3 { color:#ff4d4f } .hm-pri-4 { color:#ff4d4f } .hm-pri-5 { color:#722ed1 }
+  /* 2026-08-17：抽屉弹窗（照搬 control 平台主机详情抽屉：右侧滑出 + iframe 内嵌 CMDB importdetail） */
+  .hm-drawer-mask { position: fixed; top: 48px; left: 220px; right: 0; bottom: 0; background: rgba(0,0,0,.45); z-index: 2000; }
+  .hm-drawer { position: fixed; top: 48px; right: 0; bottom: 0; width: 70%; min-width: 800px; background: #fff; box-shadow: -4px 0 16px rgba(0,0,0,.15); z-index: 2001; display: flex; flex-direction: column; }
+  .hm-drawer-head { height: 48px; background: #fafafa; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; flex-shrink: 0; }
+  .hm-drawer-head .title { font-size: 14px; color: rgba(0,0,0,.85); }
+  .hm-drawer-head .close { cursor: pointer; font-size: 20px; color: rgba(0,0,0,.45); line-height: 1; padding: 4px 8px; }
+  .hm-drawer-head .close:hover { color: rgba(0,0,0,.85); }
+  .hm-drawer-body { flex: 1; min-height: 0; }
+  .hm-drawer-body iframe { width: 100%; height: 100%; border: 0; }
+</style>
+</head>
+<body>
+<div id="app" style="min-height:100vh">
+  <div class="hm-header">
+    <div><h1>主机监控<span class="sub">数据来源：正式平台 OpsAny + Zabbix</span></h1></div>
+    <div><span class="hm-refresh" @click="loadAll">刷新</span> <span style="color:#999;font-size:12px;margin-left:8px">自动刷新 30s</span></div>
+  </div>
+
+  <div v-if="loading" class="hm-loading">数据加载中...</div>
+  <div v-else>
+    <div class="hm-stats">
+      <div class="hm-stat-card" @click="openCard('total')"><div class="num" style="color:#1890ff">{{ stats.total }}</div><div class="lbl">主机总数</div></div>
+      <div class="hm-stat-card" @click="openCard('online')"><div class="num" style="color:#52c41a">{{ stats.online }}</div><div class="lbl">在线主机</div></div>
+      <div class="hm-stat-card" @click="openCard('offline')"><div class="num" style="color:#ff4d4f">{{ stats.offline }}</div><div class="lbl">离线主机</div></div>
+      <div class="hm-stat-card" @click="openCard('alarm')"><div class="num" style="color:#faad14">{{ stats.alarmCount }}</div><div class="lbl">当前告警</div></div>
+      <div class="hm-stat-card" @click="openCard('monitored')"><div class="num" style="color:#722ed1">{{ stats.monitored }}</div><div class="lbl">已监控</div></div>
+    </div>
+
+    <!-- 2026-08-17：统计卡下钻详细视图（v-if 切换，不走新页面） -->
+    <div v-if="view === 'hosts'" class="hm-detail">
+      <div class="hm-detail-head">
+        <h3>主机列表 <span style="color:#999;font-size:13px">（{{ hostFilter === 'all' ? '全部' : (hostFilter === 'online' ? '在线' : '离线') }} {{ filteredHosts.length }} 台）</span></h3>
+        <div>
+          <a :class="{active: hostFilter==='all'}" @click="showHosts('all')">全部</a>
+          <a :class="{active: hostFilter==='online'}" @click="showHosts('online')">在线</a>
+          <a :class="{active: hostFilter==='offline'}" @click="showHosts('offline')">离线</a>
+          <span class="hm-back" @click="backToDash">← 返回大屏</span>
+        </div>
+      </div>
+      <div v-if="hostLoading" class="hm-loading" style="padding:30px">加载中...</div>
+      <table v-else class="hm-table">
+        <thead><tr><th>IP 地址</th><th>主机名</th><th>系统类型</th><th>纳管方式</th><th>CPU</th><th>内存</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr v-for="h in filteredHosts" :key="h.ip">
+            <td class="host" @click="goDetail(h.ip)">{{ h.ip }}</td>
+            <td>{{ h.name }}</td>
+            <td>{{ h.system }}</td>
+            <td>{{ h.manage }}</td>
+            <td>{{ fmtPct(h.cpu) }}</td>
+            <td>{{ fmtPct(h.mem) }}</td>
+            <td><span class="hm-tag" :class="onlineCls(h)">{{ onlineText(h) }}</span></td>
+          </tr>
+          <tr v-if="!filteredHosts.length"><td colspan="7" style="color:#999;text-align:center">暂无数据</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div v-if="view === 'alarms'" class="hm-detail">
+      <div class="hm-detail-head">
+        <h3>告警列表 <span style="color:#999;font-size:13px">（当前告警 {{ alarms.length }} 条）</span></h3>
+        <div><span class="hm-back" @click="backToDash">← 返回大屏</span></div>
+      </div>
+      <table class="hm-table">
+        <thead><tr><th>主机 IP</th><th>告警</th><th>级别</th><th>发生时间</th></tr></thead>
+        <tbody>
+          <tr v-for="(a,i) in alarms" :key="i">
+            <td class="host" @click="goDetail(a.ip || a.host)">{{ a.host || a.ip || '-' }}</td>
+            <td>{{ a.description }}</td>
+            <td><span class="hm-pill alarm" :class="'hm-pri-' + (a.priority||0)">{{ priorityText(a.priority) }}</span></td>
+            <td style="color:#999">{{ fmtTime(a.lastchange) }}</td>
+          </tr>
+          <tr v-if="!alarms.length"><td colspan="4" style="color:#999;text-align:center">暂无告警</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div v-if="view === 'dash'">
+    <div class="hm-charts">
+      <div class="hm-chart-card"><h3>按分组分布</h3><div ref="groupChart" style="height:240px"></div></div>
+      <div class="hm-chart-card"><h3>按系统类型</h3><div ref="osChart" style="height:240px"></div></div>
+      <div class="hm-chart-card"><h3>按纳管方式</h3><div ref="manageChart" style="height:240px"></div></div>
+      <div class="hm-chart-card"><h3>告警趋势(近24h)</h3><div ref="alarmTrendChart" style="height:240px"></div></div>
+    </div>
+
+    <div class="hm-bottom">
+      <div class="hm-table-card">
+        <h3>CPU / 内存 实时 TOP10</h3>
+        <table class="hm-table">
+          <thead><tr><th>主机</th><th>CPU</th><th>内存</th><th>状态</th></tr></thead>
+          <tbody>
+            <tr v-for="h in topHosts" :key="h.ip">
+              <td class="host" @click="goDetail(h.ip)">{{ h.ip }}</td>
+              <td>{{ fmtPct(h.cpu) }}</td>
+              <td>{{ fmtPct(h.mem) }}</td>
+              <td><span class="hm-pill" :class="h.online ? 'on' : 'off'">{{ h.online ? '在线' : '离线' }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="hm-table-card">
+        <h3>当前告警</h3>
+        <table class="hm-table">
+          <thead><tr><th>主机</th><th>告警</th><th>级别</th></tr></thead>
+          <tbody>
+            <tr v-for="(a,i) in alarms" :key="i">
+              <td class="host" @click="goDetail(a.ip || a.host)">{{ a.host || a.ip || '-' }}</td>
+              <td>{{ a.description }}</td>
+              <td><span class="hm-pill alarm">{{ priorityText(a.priority) }}</span></td>
+            </tr>
+            <tr v-if="!alarms.length"><td colspan="3" style="color:#999;text-align:center">暂无告警</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <!-- 2026-08-17：抽屉弹窗（照搬 control 平台主机详情弹窗：iframe 内嵌生产平台 CMDB importdetail） -->
+  <div v-if="drawerHost" class="hm-drawer-mask" @click="closeDrawer"></div>
+  <div v-if="drawerHost" class="hm-drawer">
+    <div class="hm-drawer-head">
+      <div class="title">主机详情 - {{ drawerHost }}</div>
+      <span class="close" @click="closeDrawer">×</span>
+    </div>
+    <div class="hm-drawer-body">
+      <iframe :src="drawerUrl" referrerpolicy="no-referrer"></iframe>
+    </div>
+  </div>
+</div>
+
+<script src="lib/vue.min.js"></script>
+<script src="lib/echarts.min.js"></script>
+<script src="host-monitor-app.js"></script>
+</body>
+</html>

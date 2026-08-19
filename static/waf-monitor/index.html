@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>网络安全设备监控 - eSight</title>
+<style>
+  body { background: #f0f2f5; margin: 0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; }
+  .waf-header { background: #fff; padding: 12px 24px; box-shadow: 0 1px 4px rgba(0,21,41,.08); display: flex; justify-content: space-between; align-items: center; }
+  .waf-header h1 { font-size: 18px; margin: 0; color: rgba(0,0,0,.85); font-weight: 500; }
+  .waf-header .sub { color: rgba(0,0,0,.45); font-size: 13px; margin-left: 12px; }
+  .waf-stats { display: flex; gap: 16px; padding: 16px 24px 0; }
+  .waf-stat-card { flex: 1; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .waf-stat-card .num { font-size: 28px; font-weight: 500; }
+  .waf-stat-card .lbl { color: rgba(0,0,0,.45); font-size: 13px; margin-top: 4px; }
+  .waf-charts { display: flex; gap: 16px; padding: 16px 24px; }
+  .waf-chart-card { flex: 1; background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .waf-chart-card h3 { font-size: 14px; color: rgba(0,0,0,.85); margin: 0 0 12px; font-weight: 500; }
+  .waf-bottom { display: flex; gap: 16px; padding: 0 24px 24px; }
+  .waf-table-card { flex: 1; background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .waf-table-card h3 { font-size: 14px; color: rgba(0,0,0,.85); margin: 0 0 12px; font-weight: 500; }
+  .waf-table { width: 100%; border-collapse: collapse; }
+  .waf-table th, .waf-table td { padding: 8px 10px; text-align: left; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+  .waf-table th { color: rgba(0,0,0,.45); font-weight: 500; background: #fafafa; }
+  /* 2026-08-17：统计卡下钻详情 */
+  .waf-detail { margin: 16px 24px; background: #fff; border-radius: 8px; padding: 16px 20px; border: 1px solid #f0f0f0; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .waf-detail-head { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+  .waf-detail-head h3 { margin: 0; font-size: 15px; color: rgba(0,0,0,.85); }
+  .waf-back { color: #1890ff; cursor: pointer; font-size: 13px; }
+  .waf-back:hover { text-decoration: underline; }
+  /* 2026-08-17：单条日志详情抽屉（mask 只覆盖左侧主区，避开抽屉区域） */
+  /* 2026-08-18：去掉灰色蒙层——抽屉靠 box-shadow 浮起，点击外部关闭 */
+  .waf-drawer { position: fixed; top: 48px; right: 0; bottom: 0; width: 58%; min-width: 680px; background: #fff; box-shadow: -4px 0 16px rgba(0,0,0,.15); z-index: 2001; display: flex; flex-direction: column; }
+  .waf-drawer-head { height: 48px; background: #fafafa; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; flex-shrink: 0; }
+  .waf-drawer-head .title { font-size: 14px; color: rgba(0,0,0,.85); }
+  .waf-drawer-close { cursor: pointer; font-size: 22px; color: rgba(0,0,0,.45); line-height: 1; padding: 4px 8px; position: relative; z-index: 2; }
+  .waf-drawer-close:hover { color: rgba(0,0,0,.85); }
+  .waf-drawer-body { flex: 1; overflow: auto; padding: 16px 20px; }
+  .waf-drawer-kv .kv-row { display: flex; padding: 8px 0; border-bottom: 1px dashed #f0f0f0; font-size: 13px; }
+  .waf-drawer-kv .k { width: 100px; color: rgba(0,0,0,.45); flex-shrink: 0; }
+  .waf-drawer-kv .v { color: rgba(0,0,0,.85); word-break: break-all; }
+  .waf-pill { display:inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+  .waf-pill.high { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+  .waf-pill.mid { background: #fffbe6; color: #faad14; border: 1px solid #ffe58f; }
+  .waf-pill.low { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .waf-pill.act { background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; }
+  .waf-loading { text-align: center; padding: 60px; color: rgba(0,0,0,.45); }
+  .waf-refresh { color: #1890ff; cursor: pointer; font-size: 13px; }
+  .waf-filter { margin: 16px 24px 0; display: flex; gap: 8px; }
+  .waf-filter a { color: #1890ff; cursor: pointer; font-size: 13px; padding: 4px 12px; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; }
+  .waf-filter a.active { border-color: #1890ff; color: #1890ff; background: #e6f7ff; }
+</style>
+</head>
+<body>
+<div id="app" style="min-height:100vh">
+  <div class="waf-header">
+    <div><h1>WAF攻击日志<span class="sub">数据来源：绿盟日志审计系统（WAF 攻击日志）</span></h1></div>
+    <div><span class="waf-refresh" @click="loadAll">刷新</span> <span style="color:#999;font-size:12px;margin-left:8px">自动刷新 30s</span></div>
+  </div>
+
+  <div class="waf-filter">
+    <a v-for="r in ranges" :key="r.v" :class="{active: range === r.v}" @click="setRange(r.v)">{{ r.t }}</a>
+  </div>
+
+  <div v-if="loading" class="waf-loading">数据加载中...</div>
+  <div v-else>
+    <template v-if="view === 'dash'">
+    <div class="waf-stats">
+      <div class="waf-stat-card" style="cursor:pointer" @click="openCard('total')"><div class="num" style="color:#1890ff">{{ stats.total }}</div><div class="lbl">攻击总数</div></div>
+      <div class="waf-stat-card" style="cursor:pointer" @click="openCard('high')"><div class="num" style="color:#ff4d4f">{{ stats.high_cnt }}</div><div class="lbl">高危攻击</div></div>
+      <div class="waf-stat-card" style="cursor:pointer" @click="openCard('src')"><div class="num" style="color:#faad14">{{ stats.src_ip_cnt }}</div><div class="lbl">攻击源IP</div></div>
+      <div class="waf-stat-card" style="cursor:pointer" @click="openCard('dst')"><div class="num" style="color:#722ed1">{{ stats.dst_ip_cnt }}</div><div class="lbl">被攻击目标</div></div>
+    </div>
+
+    <div class="waf-charts">
+      <div class="waf-chart-card"><h3>攻击类型分布</h3><div ref="typeChart" style="height:240px"></div></div>
+      <div class="waf-chart-card"><h3>攻击源 IP TOP10</h3><div ref="srcChart" style="height:240px"></div></div>
+      <div class="waf-chart-card"><h3>攻击趋势</h3><div ref="trendChart" style="height:240px"></div></div>
+    </div>
+
+    <div class="waf-bottom">
+      <div class="waf-table-card">
+        <h3>最近攻击日志</h3>
+        <table class="waf-table">
+          <thead><tr><th>时间</th><th>源IP</th><th>目的IP</th><th>攻击类型</th><th>等级</th><th>动作</th><th>URL</th></tr></thead>
+          <tbody>
+            <tr v-for="(l,i) in logs" :key="i" style="cursor:pointer" @click.stop="openLog(l)">
+              <td style="color:#999">{{ l.log_time }}</td>
+              <td>{{ l.src_ip || '-' }}</td>
+              <td>{{ l.dst_ip || '-' }}</td>
+              <td>{{ typeText(l.event_type) }}</td>
+              <td><span class="waf-pill" :class="sevCls(l.severity)">{{ sevText(l.severity) }}</span></td>
+              <td><span class="waf-pill act">{{ actText(l.action) }}</span></td>
+              <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="urlText(l)">{{ urlText(l) }}</td>
+            </tr>
+            <tr v-if="!logs.length"><td colspan="7" style="color:#999;text-align:center">暂无攻击日志（WAF 有攻击流量时实时推送）</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    </template>
+
+    <!-- 2026-08-17：统计卡下钻详情视图 -->
+    <div v-if="view === 'detail'" class="waf-detail">
+      <div class="waf-detail-head">
+        <a class="waf-back" @click="backDash">← 返回大屏</a>
+        <h3>{{ detailTitle }}</h3>
+        <span v-if="detailLoading" style="color:#999;font-size:13px">加载中...</span>
+        <span v-else style="color:#999;font-size:13px">共 {{ detailType === 'src' || detailType === 'dst' ? detailIpList.length : (detailTotal || detailLogs.length) }} 条</span>
+      </div>
+      <table v-if="detailType === 'src' || detailType === 'dst'" class="waf-table">
+        <thead><tr><th>{{ detailType === 'src' ? '攻击源IP' : '被攻击目标' }}</th><th>攻击次数</th><th>高危次数</th><th>最近攻击时间</th></tr></thead>
+        <tbody>
+          <tr v-for="g in detailIpList" :key="g.ip" style="cursor:pointer" @click="filterByIp(g.ip)">
+            <td style="color:#1890ff">{{ g.ip }}</td>
+            <td>{{ g.cnt }}</td>
+            <td><span style="color:#ff4d4f">{{ g.high || '-' }}</span></td>
+            <td style="color:#999">{{ g.last || '-' }}</td>
+          </tr>
+          <tr v-if="!detailIpList.length"><td colspan="4" style="color:#999;text-align:center">暂无数据</td></tr>
+        </tbody>
+      </table>
+      <table v-else class="waf-table">
+        <thead><tr><th>时间</th><th>源IP</th><th>目的IP</th><th>攻击类型</th><th>等级</th><th>动作</th><th>URL</th></tr></thead>
+        <tbody>
+          <tr v-for="(l,i) in detailLogs" :key="i" style="cursor:pointer" @click.stop="openLog(l)">
+            <td style="color:#999">{{ l.log_time }}</td>
+            <td>{{ l.src_ip || '-' }}</td>
+            <td>{{ l.dst_ip || '-' }}</td>
+            <td>{{ typeText(l.event_type) }}</td>
+            <td><span class="waf-pill" :class="sevCls(l.severity)">{{ sevText(l.severity) }}</span></td>
+            <td><span class="waf-pill act">{{ actText(l.action) }}</span></td>
+            <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="urlText(l)">{{ urlText(l) }}</td>
+          </tr>
+          <tr v-if="!detailLogs.length"><td colspan="7" style="color:#999;text-align:center">该条件下暂无攻击日志</td></tr>
+        </tbody>
+      </table>
+      <!-- 2026-08-18：分页加载更多 -->
+      <div v-if="detailType !== 'src' && detailType !== 'dst' && detailLogs.length < detailTotal" style="text-align:center;margin:16px 0 4px">
+        <a class="waf-back" @click="loadMore">加载更多（{{ detailTotal - detailLogs.length }} 条）</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2026-08-18：单条日志详情抽屉（无 mask，靠 box-shadow + 外部点击关闭） -->
+  <div v-if="drawerLog" class="waf-drawer">
+    <div class="waf-drawer-head">
+      <div class="title">攻击日志详情 - {{ drawerLog.src_ip || '-' }} → {{ drawerLog.dst_ip || '-' }}</div>
+      <span class="waf-drawer-close" @click="closeDrawer">×</span>
+    </div>
+    <div class="waf-drawer-body">
+      <div class="waf-drawer-kv">
+        <div class="kv-row"><span class="k">时间</span><span class="v">{{ drawerLog.log_time }}</span></div>
+        <div class="kv-row"><span class="k">源 IP</span><span class="v">{{ drawerLog.src_ip || '-' }}</span></div>
+        <div class="kv-row"><span class="k">源端口</span><span class="v">{{ drawerLog.src_port || '-' }}</span></div>
+        <div class="kv-row"><span class="k">目的 IP</span><span class="v">{{ drawerLog.dst_ip || '-' }}</span></div>
+        <div class="kv-row"><span class="k">目的端口</span><span class="v">{{ drawerLog.dst_port || '-' }}</span></div>
+        <div class="kv-row"><span class="k">攻击类型</span><span class="v">{{ typeText(drawerLog.event_type) }}</span></div>
+        <div class="kv-row"><span class="k">风险等级</span><span class="v"><span class="waf-pill" :class="sevCls(drawerLog.severity)">{{ sevText(drawerLog.severity) }}</span></span></div>
+        <div class="kv-row"><span class="k">处置动作</span><span class="v"><span class="waf-pill act">{{ actText(drawerLog.action) }}</span></span></div>
+        <div class="kv-row"><span class="k">URL</span><span class="v" style="word-break:break-all">{{ urlText(drawerLog) }}</span></div>
+        <div class="kv-row"><span class="k">协议</span><span class="v">{{ drawerLog.protocol_type || drawerLog.proto || '-' }}</span></div>
+        <div class="kv-row"><span class="k">站点名称</span><span class="v">{{ drawerLog.site_name || '-' }}</span></div>
+        <div class="kv-row"><span class="k">源国家</span><span class="v">{{ drawerLog.src_country || '-' }}</span></div>
+        <div class="kv-row"><span class="k">告警信息</span><span class="v" style="word-break:break-all">{{ drawerLog.alert_info || drawerLog.msg || '-' }}</span></div>
+        <div class="kv-row"><span class="k">策略名称</span><span class="v">{{ drawerLog.policy_name || '-' }}</span></div>
+        <div class="kv-row"><span class="k">规则 ID</span><span class="v">{{ drawerLog.rule_id || '-' }}</span></div>
+        <div class="kv-row"><span class="k">设备 IP</span><span class="v">{{ drawerLog.dev_ip || '-' }}</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../host-monitor/lib/vue.min.js"></script>
+<script src="../host-monitor/lib/echarts.min.js"></script>
+<script src="waf-monitor-app.js?v=3"></script>
+</body>
+</html>

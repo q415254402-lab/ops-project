@@ -2,6 +2,8 @@
 
 from django.urls import include, re_path
 from django.contrib import admin
+from django.views.decorators.csrf import csrf_exempt
+from apps.cmdb.api.control_api import control_api_router
 
 urlpatterns = [
     # Django Admin
@@ -9,6 +11,12 @@ urlpatterns = [
 
     # OpsAny 统一认证（复用框架的 account 模块，平台会话 Cookie 认证）
     re_path(r'^account/', include('blueapps.account.urls')),
+
+    # v4 直接搬运 control dist：baseURL = /api/v1/control/v0_1/<path>
+    # control 前端是 ant-design-pro 1.x，axios POST 不带 csrftoken（依赖平台会话 bk_token）；
+    # 这里 csrf_exempt 跳过 Django 全局 CSRF 中间件（403 Forbidden 修复）。
+    # OpsAny 平台已做 SSO 认证，CSRF 防护由平台网关处理。
+    re_path(r'^api/v1/control/v0_1/(?P<path>.+)$', csrf_exempt(control_api_router)),
 
     # eSight 业务 API
     re_path(r'^api/v1/cmdb/', include('apps.cmdb.urls')),
