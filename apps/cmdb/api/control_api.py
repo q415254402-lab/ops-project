@@ -246,6 +246,15 @@ def get_menu_proxy(request):
                             'parent_id': node.get('id'), 'menu_type': 'menu', 'display': 1,
                             'children': [], 'auth': [],
                         })
+                    # 2026-08-21：漏洞扫描（华为 VSCAN1506）——防火墙日志后插入
+                    if not any(m.get('menu_code') == 'vscanMonitor' for m in children):
+                        idx = next((i for i, m in enumerate(children) if m.get('menu_code') == 'fwMonitor'), 0) + 1
+                        children.insert(idx, {
+                            'id': 900003, 'menu_name': '漏洞扫描', 'show_name': '漏洞扫描',
+                            'priority': '3.2.4', 'menu_code': 'vscanMonitor', 'menu_address': '/security/vscanMonitor',
+                            'parent_id': node.get('id'), 'menu_type': 'menu', 'display': 1,
+                            'children': [], 'auth': [],
+                        })
                 for c in (node.get('children') or []):
                     _patch(c)
 

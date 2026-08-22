@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>漏洞扫描 - eSight</title>
+<style>
+  body { background: #f0f2f5; margin: 0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; }
+  .vs-header { background: #fff; padding: 12px 24px; box-shadow: 0 1px 4px rgba(0,21,41,.08); display: flex; justify-content: space-between; align-items: center; }
+  .vs-header h1 { font-size: 18px; margin: 0; color: rgba(0,0,0,.85); font-weight: 500; }
+  .vs-header .sub { color: rgba(0,0,0,.45); font-size: 13px; margin-left: 12px; }
+  .vs-refresh { color: #1890ff; cursor: pointer; font-size: 13px; }
+  .vs-nav { display: flex; gap: 8px; padding: 16px 24px 0; }
+  .vs-nav a { color: #1890ff; cursor: pointer; font-size: 13px; padding: 4px 12px; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; }
+  .vs-nav a.active { border-color: #1890ff; color: #1890ff; background: #e6f7ff; }
+  .vs-stats { display: flex; gap: 16px; padding: 16px 24px 0; }
+  .vs-stat-card { flex: 1; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .vs-stat-card .num { font-size: 28px; font-weight: 500; }
+  .vs-stat-card .lbl { color: rgba(0,0,0,.45); font-size: 13px; margin-top: 4px; }
+  .vs-charts { display: flex; gap: 16px; padding: 16px 24px; }
+  .vs-chart-card { flex: 1; background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .vs-chart-card h3 { font-size: 14px; color: rgba(0,0,0,.85); margin: 0 0 12px; font-weight: 500; }
+  .vs-table-card { background: #fff; border-radius: 8px; padding: 16px 20px; margin: 0 24px 24px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .vs-table-card h3 { font-size: 14px; color: rgba(0,0,0,.85); margin: 0 0 12px; font-weight: 500; }
+  .vs-table { width: 100%; border-collapse: collapse; }
+  .vs-table th, .vs-table td { padding: 8px 10px; text-align: left; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+  .vs-table th { color: rgba(0,0,0,.45); font-weight: 500; background: #fafafa; }
+  .vs-pill { display:inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+  .vs-pill.crit { background: #fff1f0; color: #cf1322; border: 1px solid #ffa39e; }
+  .vs-pill.high { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+  .vs-pill.mid { background: #fffbe6; color: #faad14; border: 1px solid #ffe58f; }
+  .vs-pill.low { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .vs-pill.info { background: #f5f5f5; color: #8c8c8c; border: 1px solid #d9d9d9; }
+  .vs-loading { text-align: center; padding: 60px; color: rgba(0,0,0,.45); }
+  .vs-filter { margin: 16px 24px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .vs-filter input, .vs-filter select { height: 30px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 0 8px; font-size: 13px; color: rgba(0,0,0,.65); background: #fff; outline: none; }
+  .vs-filter input:focus, .vs-filter select:focus { border-color: #1890ff; }
+  .vs-filter .btn { background: #1890ff; color: #fff; border: none; border-radius: 4px; padding: 0 16px; height: 30px; cursor: pointer; font-size: 13px; }
+  .vs-more { text-align: center; margin: 16px 0 4px; }
+  .vs-more a { color: #1890ff; cursor: pointer; font-size: 13px; }
+  .vs-drawer { position: fixed; top: 48px; right: 0; bottom: 0; width: 58%; min-width: 680px; background: #fff; box-shadow: -4px 0 16px rgba(0,0,0,.15); z-index: 2001; display: flex; flex-direction: column; }
+  .vs-drawer-head { height: 48px; background: #fafafa; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; flex-shrink: 0; }
+  .vs-drawer-head .title { font-size: 14px; color: rgba(0,0,0,.85); }
+  .vs-drawer-close { cursor: pointer; font-size: 22px; color: rgba(0,0,0,.45); line-height: 1; padding: 4px 8px; }
+  .vs-drawer-close:hover { color: rgba(0,0,0,.85); }
+  .vs-drawer-body { flex: 1; overflow: auto; padding: 16px 20px; }
+  .vs-drawer-kv .kv-row { display: flex; padding: 8px 0; border-bottom: 1px dashed #f0f0f0; font-size: 13px; }
+  .vs-drawer-kv .k { width: 110px; color: rgba(0,0,0,.45); flex-shrink: 0; }
+  .vs-drawer-kv .v { color: rgba(0,0,0,.85); word-break: break-all; }
+  .vs-empty { color: #999; text-align: center; padding: 40px; }
+</style>
+</head>
+<body>
+<div id="app" style="min-height:100vh">
+  <div class="vs-header">
+    <div><h1>漏洞扫描<span class="sub">数据来源：华为 vScan（VSCAN1506）实时透传</span></h1></div>
+    <div><span class="vs-refresh" @click="loadAll">刷新</span></div>
+  </div>
+
+  <div class="vs-nav">
+    <a :class="{active: view === 'dash'}" @click="switchView('dash')">大屏总览</a>
+    <a :class="{active: view === 'vulns'}" @click="switchView('vulns')">漏洞列表</a>
+    <a :class="{active: view === 'assets'}" @click="switchView('assets')">资产视图</a>
+    <a :class="{active: view === 'web'}" @click="switchView('web')">WEB 漏洞</a>
+  </div>
+
+  <div v-if="loading" class="vs-loading">数据加载中...</div>
+  <div v-else-if="error" class="vs-loading" style="color:#ff4d4f">{{ error }}</div>
+
+  <!-- ══════════ 大屏总览 ══════════ -->
+  <template v-if="view === 'dash' && !loading && !error">
+    <div class="vs-stats">
+      <div class="vs-stat-card"><div class="num" style="color:#1890ff">{{ stats.vuln_total }}</div><div class="lbl">漏洞总数</div></div>
+      <div class="vs-stat-card"><div class="num" style="color:#ff4d4f">{{ stats.high_cnt }}</div><div class="lbl">高危/严重漏洞</div></div>
+      <div class="vs-stat-card"><div class="num" style="color:#faad14">{{ stats.task_total }}</div><div class="lbl">扫描任务数</div></div>
+      <div class="vs-stat-card"><div class="num" style="color:#52c41a">{{ stats.task_running }}</div><div class="lbl">运行中任务</div></div>
+      <div class="vs-stat-card"><div class="num" style="color:#722ed1">{{ stats.task_finished }}</div><div class="lbl">已完成任务</div></div>
+      <div class="vs-stat-card"><div class="num" style="color:#13c2c2">{{ webStats.task_total }}</div><div class="lbl">WEB 任务数</div></div>
+    </div>
+    <div class="vs-charts">
+      <div class="vs-chart-card"><h3>风险等级分布</h3><div ref="sevChart" style="height:260px"></div></div>
+      <div class="vs-chart-card"><h3>高危漏洞 TOP 资产</h3><div ref="assetChart" style="height:260px"></div></div>
+    </div>
+    <div class="vs-table-card">
+      <h3>最近检测漏洞</h3>
+      <table class="vs-table">
+        <thead><tr><th>检测时间</th><th>资产</th><th>IP</th><th>风险等级</th><th>漏洞名称</th><th>端口</th></tr></thead>
+        <tbody>
+          <tr v-for="(v,i) in stats.recent" :key="i" style="cursor:pointer" @click.stop="openVuln(v)">
+            <td style="color:#999">{{ v.time }}</td>
+            <td>{{ v.asset || '-' }}</td>
+            <td>{{ v.ip || '-' }}</td>
+            <td><span class="vs-pill" :class="sevCls(v.severity)">{{ v.sev_text }}</span></td>
+            <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="v.name">{{ v.name }}</td>
+            <td>{{ v.port || '-' }}</td>
+          </tr>
+          <tr v-if="!stats.recent.length"><td colspan="6" style="color:#999;text-align:center">暂无漏洞数据</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </template>
+
+  <!-- ══════════ 漏洞列表 ══════════ -->
+  <div v-if="view === 'vulns' && !loading && !error">
+    <div class="vs-filter">
+      <input v-model="f.ip" placeholder="设备IP" style="width:130px" @keyup.enter="searchVulns">
+      <input v-model="f.name" placeholder="漏洞名称" style="width:180px" @keyup.enter="searchVulns">
+      <select v-model="f.severity" @change="searchVulns">
+        <option value="">全部风险等级</option>
+        <option value="4">严重</option>
+        <option value="3">高</option>
+        <option value="2">中</option>
+        <option value="1">低</option>
+        <option value="0">信息</option>
+      </select>
+      <input v-model="f.asset_name" placeholder="资产名称" style="width:150px" @keyup.enter="searchVulns">
+      <input v-model="f.port" placeholder="端口" style="width:90px" @keyup.enter="searchVulns">
+      <button class="btn" @click="searchVulns">查询</button>
+      <span style="color:#999;font-size:13px;margin-left:auto">共 {{ vulnTotal }} 条</span>
+    </div>
+    <div class="vs-table-card" style="margin-top:16px">
+      <table class="vs-table">
+        <thead><tr><th>检测时间</th><th>资产</th><th>IP</th><th>OS</th><th>风险等级</th><th>漏洞名称</th><th>端口</th></tr></thead>
+        <tbody>
+          <tr v-for="(v,i) in vulns" :key="i" style="cursor:pointer" @click.stop="openVuln(v)">
+            <td style="color:#999">{{ v.time }}</td>
+            <td>{{ v.asset_name || '-' }}</td>
+            <td>{{ v.ip || '-' }}</td>
+            <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="v.os">{{ v.os || '-' }}</td>
+            <td><span class="vs-pill" :class="v.severity.cls">{{ v.severity.text }}</span></td>
+            <td style="max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="v.name">{{ v.name }}</td>
+            <td>{{ v.port || '-' }}</td>
+          </tr>
+          <tr v-if="!vulns.length"><td colspan="7" style="color:#999;text-align:center">暂无漏洞</td></tr>
+        </tbody>
+      </table>
+      <div v-if="!vulnExhausted" class="vs-more">
+        <a @click="loadMoreVulns">加载更多（剩余 {{ Math.max(vulnTotalExact - dataPool.length, 0) }} 条）</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 资产视图 ══════════ -->
+  <div v-if="view === 'assets' && !loading && !error">
+    <div class="vs-filter">
+      <input v-model="aF.ip" placeholder="设备IP" style="width:140px" @keyup.enter="switchView('assets')">
+      <button class="btn" @click="switchView('assets')">查询</button>
+      <span style="color:#999;font-size:13px;margin-left:auto">共 {{ assetList.length }} 个资产</span>
+    </div>
+    <div class="vs-table-card" style="margin-top:16px">
+      <table class="vs-table">
+        <thead><tr><th>IP</th><th>资产名称</th><th>操作系统</th><th>漏洞总数</th><th>高危/严重</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr v-for="(a,i) in assetList" :key="i">
+            <td style="color:#1890ff">{{ a.ip || '-' }}</td>
+            <td>{{ a.name || '-' }}</td>
+            <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="a.os">{{ a.os || '-' }}</td>
+            <td>{{ a.cnt }}</td>
+            <td><span style="color:#ff4d4f">{{ a.high }}</span></td>
+            <td><a style="color:#1890ff;cursor:pointer" @click="filterByAsset(a)">查看漏洞</a></td>
+          </tr>
+          <tr v-if="!assetList.length"><td colspan="6" style="color:#999;text-align:center">暂无资产</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════ WEB 漏洞视图（落库 + 懒检测同步：任务下拉 + 漏洞表）═══════════ -->
+  <div v-if="view === 'web' && !loading && !error">
+    <div class="vs-filter" style="margin-top:16px">
+      <span style="color:rgba(0,0,0,.65);font-size:13px">报告 / 任务：</span>
+      <select v-model="webCurrentTaskid" @change="selectWebTask(webCurrentTaskid)" style="width:340px">
+        <option v-for="c in webCards.cards" :key="c.taskid" :value="String(c.taskid)">
+          {{ c.name }}（网站 {{ c.site_total }} / 漏洞 {{ c.vuln_total }} / 高危 {{ c.high_total }}）
+        </option>
+      </select>
+      <span v-if="webCurrentTaskid" style="color:#999;font-size:13px;margin-left:12px">当前：<b>{{ currentWebTaskName() }}</b>（第一条 = 最新报告）</span>
+      <span style="margin-left:auto">
+        <button class="btn" style="margin-right:8px" @click="openCompare">报告对比</button>
+        <button class="btn" style="background:#13c2c2" @click="syncNow" :disabled="webSyncBuilding">同步最新报告</button>
+      </span>
+    </div>
+
+    <!-- 同步进度 -->
+    <div v-if="webSyncBuilding" class="vs-filter" style="background:#e6fffb;border:1px solid #87e8de;border-radius:4px;padding:8px 12px;margin-top:12px">
+      <span style="font-size:13px;color:#006d75">🔄 正在同步最新报告：<b>{{ webSyncMsg || '同步中...' }}</b>
+        <span v-if="webSyncTotalTasks">（{{ webSyncDoneTasks }}/{{ webSyncTotalTasks }} 个任务）</span>
+      </span>
+      <span style="color:#999;font-size:12px;margin-left:12px">首次同步约 1-2 分钟，之后秒开</span>
+    </div>
+    <div v-if="webSyncErr" class="vs-filter" style="background:#fff1f0;border:1px solid #ffa39e;border-radius:4px;padding:8px 12px;margin-top:12px">
+      <span style="font-size:13px;color:#cf1322">{{ webSyncErr }}</span>
+    </div>
+
+    <div v-if="webCardsLoading" class="vs-loading">正在加载 WEB 任务列表...</div>
+    <div v-else-if="webTaskVulnsLoading" class="vs-loading">正在加载 {{ currentWebTaskName() }} 漏洞明细...</div>
+    <div v-else-if="webTaskVulnsErr" class="vs-loading" style="color:#ff4d4f">{{ webTaskVulnsErr }}</div>
+    <div v-else-if="!webCards.cards.length" class="vs-loading">暂无已同步的报告，点击「同步最新报告」拉取 vScan 数据</div>
+    <div v-else class="vs-table-card" style="margin-top:16px">
+      <table class="vs-table">
+        <thead><tr><th style="width:90px">风险</th><th>漏洞名称</th><th>漏洞 URL</th><th>分类</th><th style="width:140px">问题参数</th></tr></thead>
+        <tbody>
+          <tr v-for="(v,i) in webTaskVulns" :key="i" style="cursor:pointer" @click.stop="openWebVuln(v)">
+            <td><span class="vs-pill" :class="v.severity.cls">{{ v.severity.text }}</span></td>
+            <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1890ff" :title="v.name">{{ v.name }}</td>
+            <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="v.url">{{ v.url || '-' }}</td>
+            <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="v.category">{{ v.category || '-' }}</td>
+            <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="v.param">{{ v.param || '-' }}</td>
+          </tr>
+          <tr v-if="!webTaskVulns.length"><td colspan="5" style="color:#999;text-align:center">该任务暂无漏洞数据（可能扫描未完成）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════ 报告对比弹窗（整改对比）═══════════ -->
+  <div v-if="showCompare" class="vs-drawer" style="width:70%;min-width:800px">
+    <div class="vs-drawer-head">
+      <div class="title">WEB 报告对比（整改对比）</div>
+      <span class="vs-drawer-close" @click="closeCompare">×</span>
+    </div>
+    <div class="vs-drawer-body">
+      <div class="vs-filter" style="margin:0 0 12px;display:flex;gap:8px;align-items:center">
+        <span style="font-size:13px;color:rgba(0,0,0,.65)">对比：</span>
+        <select v-model="cmpA" style="width:300px">
+          <option v-for="c in webCards.cards" :key="c.taskid" :value="String(c.taskid)">{{ taskNameOf(c.taskid) }}</option>
+        </select>
+        <span style="color:#999"> vs </span>
+        <select v-model="cmpB" style="width:300px">
+          <option v-for="c in webCards.cards" :key="c.taskid" :value="String(c.taskid)">{{ taskNameOf(c.taskid) }}</option>
+        </select>
+        <button class="btn" @click="doCompare" :disabled="cmpLoading || !cmpA || !cmpB || cmpA === cmpB">开始对比</button>
+      </div>
+      <div v-if="cmpLoading" class="vs-loading">对比中...</div>
+      <div v-else-if="cmpResult && cmpResult.err" class="vs-loading" style="color:#ff4d4f">{{ cmpResult.err }}</div>
+      <div v-else-if="cmpResult" style="display:flex;gap:12px">
+        <div style="flex:1;background:#fff1f0;border:1px solid #ffa39e;border-radius:6px;padding:12px">
+          <div style="font-size:14px;color:#cf1322;margin-bottom:8px">🆕 新增漏洞（{{ cmpResult.new_total }}）</div>
+          <div v-for="(v,i) in cmpResult.new" :key="i" style="font-size:12px;color:rgba(0,0,0,.75);padding:4px 0;border-bottom:1px dashed #ffd6d6">
+            <span class="vs-pill" :class="v.severity.cls" style="margin-right:6px">{{ v.severity.text }}</span>{{ v.name }}<span style="color:#999"> — {{ v.url }}</span>
+          </div>
+          <div v-if="!cmpResult.new.length" style="font-size:12px;color:#999">无新增</div>
+        </div>
+        <div style="flex:1;background:#f6ffed;border:1px solid #b7eb8f;border-radius:6px;padding:12px">
+          <div style="font-size:14px;color:#389e0d;margin-bottom:8px">✅ 已修复（{{ cmpResult.fixed_total }}）</div>
+          <div v-for="(v,i) in cmpResult.fixed" :key="i" style="font-size:12px;color:rgba(0,0,0,.75);padding:4px 0;border-bottom:1px dashed #d9f7be">
+            <span class="vs-pill" :class="v.severity.cls" style="margin-right:6px">{{ v.severity.text }}</span>{{ v.name }}<span style="color:#999"> — {{ v.url }}</span>
+          </div>
+          <div v-if="!cmpResult.fixed.length" style="font-size:12px;color:#999">无已修复</div>
+        </div>
+        <div style="flex:1;background:#fffbe6;border:1px solid #ffe58f;border-radius:6px;padding:12px">
+          <div style="font-size:14px;color:#d48806;margin-bottom:8px">⏳ 仍存在（{{ cmpResult.remain_total }}）</div>
+          <div v-for="(v,i) in cmpResult.remain" :key="i" style="font-size:12px;color:rgba(0,0,0,.75);padding:4px 0;border-bottom:1px dashed #ffe58f">
+            <span class="vs-pill" :class="v.severity.cls" style="margin-right:6px">{{ v.severity.text }}</span>{{ v.name }}<span style="color:#999"> — {{ v.url }}</span>
+          </div>
+          <div v-if="!cmpResult.remain.length" style="font-size:12px;color:#999">无仍存在</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 漏洞详情抽屉 -->
+  <div v-if="drawer" class="vs-drawer">
+    <div class="vs-drawer-head">
+      <div class="title">漏洞详情 - {{ drawer.name || '' }}</div>
+      <span class="vs-drawer-close" @click="closeDrawer">×</span>
+    </div>
+    <div class="vs-drawer-body">
+      <div v-if="detailLoading" class="vs-loading">加载中...</div>
+      <div v-else-if="detail.error" class="vs-empty" style="color:#ff4d4f">{{ detail.error }}</div>
+      <div v-else class="vs-drawer-kv">
+        <!-- WEB 漏洞详情（scanplugins/detail 字段不同） -->
+        <template v-if="drawer.web">
+          <div class="kv-row"><span class="k">漏洞名称</span><span class="v">{{ detail.name || '-' }}</span></div>
+          <div class="kv-row"><span class="k">所属分组</span><span class="v">{{ detail.group || '-' }}</span></div>
+          <div class="kv-row"><span class="k">风险级别</span><span class="v"><span class="vs-pill" :class="detail.severity.cls">{{ detail.severity.text }}</span></span></div>
+          <div class="kv-row"><span class="k">漏洞 URL</span><span class="v">{{ detail.url || '-' }}</span></div>
+          <div class="kv-row"><span class="k">问题参数</span><span class="v">{{ detail.param || '-' }}</span></div>
+          <div class="kv-row"><span class="k">概要</span><span class="v" style="white-space:pre-wrap">{{ detail.descr || '-' }}</span></div>
+          <div class="kv-row"><span class="k">解决方法</span><span class="v" style="white-space:pre-wrap">{{ detail.solution || '-' }}</span></div>
+          <div class="kv-row"><span class="k">测试用例</span><span class="v" style="white-space:pre-wrap;font-family:Consolas,monospace;font-size:12px">{{ detail.testcase || '-' }}</span></div>
+          <div class="kv-row"><span class="k">备注信息</span><span class="v" style="white-space:pre-wrap">{{ detail.comment || '-' }}</span></div>
+        </template>
+        <!-- 系统漏洞详情 -->
+        <template v-else>
+          <div class="kv-row"><span class="k">漏洞名称</span><span class="v">{{ detail.name || '-' }}</span></div>
+          <div class="kv-row"><span class="k">所属分组</span><span class="v">{{ detail.group || '-' }}</span></div>
+          <div class="kv-row"><span class="k">风险级别</span><span class="v"><span class="vs-pill" :class="detail.severity.cls">{{ detail.severity.text }}</span></span></div>
+          <div class="kv-row"><span class="k">CVE</span><span class="v">{{ detail.cves || '-' }}</span></div>
+          <div class="kv-row"><span class="k">CVSS</span><span class="v">{{ detail.cvss_vector || '-' }}</span></div>
+          <div class="kv-row"><span class="k">CNVD</span><span class="v">{{ detail.cnvd || '-' }}</span></div>
+          <div class="kv-row"><span class="k">CNNVD</span><span class="v">{{ detail.cnnvd || '-' }}</span></div>
+          <div class="kv-row"><span class="k">概要</span><span class="v">{{ detail.synopsis || '-' }}</span></div>
+          <div class="kv-row"><span class="k">描述</span><span class="v" style="white-space:pre-wrap">{{ detail.description || '-' }}</span></div>
+          <div class="kv-row"><span class="k">解决办法</span><span class="v" style="white-space:pre-wrap">{{ detail.solution || '-' }}</span></div>
+          <div class="kv-row"><span class="k">Bugtraq ID</span><span class="v">{{ detail.bids || '-' }}</span></div>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../host-monitor/lib/vue.min.js"></script>
+<script src="../host-monitor/lib/echarts.min.js"></script>
+<script src="vscan-monitor-app.js?v=14"></script>
+</body>
+</html>

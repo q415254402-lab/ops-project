@@ -175,7 +175,12 @@ else:
 # 配置了 Redis 用 redis 兜底，否则用 memory://（不持久，仅保证进程可启动）
 BROKER_URL = os.getenv('BK_BROKER_URL') or os.getenv('CELERY_BROKER_URL') or (REDIS_LOCATION or 'memory://')
 CELERY_BROKER_URL = BROKER_URL
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND') or os.getenv('BK_BROKER_URL') or REDIS_LOCATION
+# ⚠️ 2026-08-21 修复：celery 5.3 不认 'amqp' 作为 result backend（会 "Unknown result backend: 'amqp'" 崩溃）。
+# 容器里 BK_BROKER_URL=amqp://...（rabbitmq）→ 需转成 rpc:// 才合法；无 rabbitmq 时用 Redis/内存。
+_BK_BROKER = os.getenv('BK_BROKER_URL') or ''
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND') or (
+    _BK_BROKER.replace('amqp://', 'rpc://', 1) if _BK_BROKER.startswith('amqp://') else REDIS_LOCATION
+)
 
 # ============================================================
 # DRF 配置（统一认证 / 权限 / 异常处理）

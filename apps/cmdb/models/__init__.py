@@ -19,6 +19,8 @@ from .ip_management import (
 )
 # v2 WAF 安全日志（syslog 接收）
 from .waf_security import WafAttackLog
+# v3 vScan WEB 漏洞落库（2026-08-22）
+from .vscan_web import VscanWebTask, VscanWebSite, VscanWebVuln
 
 __all__ = [
     'Manufacturer', 'Credential',
@@ -38,4 +40,6 @@ __all__ = [
     'IpManagerScanLogModel',
     # v2 WAF 安全日志
     'WafAttackLog',
+    # v3 vScan WEB 漏洞落库（2026-08-22）
+    'VscanWebTask', 'VscanWebSite', 'VscanWebVuln',
 ]
