@@ -144,15 +144,15 @@
   <!-- ══════════ 资产视图 ══════════ -->
   <div v-if="view === 'assets' && !loading && !error">
     <div class="vs-filter">
-      <input v-model="aF.ip" placeholder="设备IP" style="width:140px" @keyup.enter="switchView('assets')">
-      <button class="btn" @click="switchView('assets')">查询</button>
-      <span style="color:#999;font-size:13px;margin-left:auto">共 {{ assetList.length }} 个资产</span>
+      <input v-model="aF.ip" placeholder="设备IP / 资产名称" style="width:180px" @input="onAssetSearch">
+      <button class="btn" @click="onAssetSearch">查询</button>
+      <span style="color:#999;font-size:13px;margin-left:auto">共 {{ filteredAssets.length }} 个资产<span v-if="filteredAssets.length !== assetList.length">（匹配 {{ assetList.length }} 个）</span></span>
     </div>
     <div class="vs-table-card" style="margin-top:16px">
       <table class="vs-table">
         <thead><tr><th>IP</th><th>资产名称</th><th>操作系统</th><th>漏洞总数</th><th>高危/严重</th><th>操作</th></tr></thead>
         <tbody>
-          <tr v-for="(a,i) in assetList" :key="i">
+          <tr v-for="(a,i) in filteredAssets" :key="i">
             <td style="color:#1890ff">{{ a.ip || '-' }}</td>
             <td>{{ a.name || '-' }}</td>
             <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="a.os">{{ a.os || '-' }}</td>
@@ -160,7 +160,7 @@
             <td><span style="color:#ff4d4f">{{ a.high }}</span></td>
             <td><a style="color:#1890ff;cursor:pointer" @click="filterByAsset(a)">查看漏洞</a></td>
           </tr>
-          <tr v-if="!assetList.length"><td colspan="6" style="color:#999;text-align:center">暂无资产</td></tr>
+          <tr v-if="!filteredAssets.length"><td colspan="6" style="color:#999;text-align:center">暂无资产</td></tr>
         </tbody>
       </table>
     </div>
@@ -303,6 +303,6 @@
 
 <script src="../host-monitor/lib/vue.min.js"></script>
 <script src="../host-monitor/lib/echarts.min.js"></script>
-<script src="vscan-monitor-app.js?v=14"></script>
+<script src="vscan-monitor-app.js?v=15"></script>
 </body>
 </html>

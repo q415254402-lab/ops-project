@@ -450,7 +450,12 @@ class VScanClient(object):
             'top_assets': top_assets,
             'recent': all_vulns[:20],
         }
-        cache_set(CACHE_KEY, result)
+        # ⚠️ 2026-08-24：异常结果不写缓存（iTotalRecords=0 或任务数为 0 = vScan 抖动）
+        # 否则坏结果会被缓存 60s，期间所有访问大屏都看到 0
+        if (result['vuln_total'] or 0) > 0 and len(tasks) > 0:
+            cache_set(CACHE_KEY, result)
+        else:
+            logger.warning('[vscan] stats 异常（vuln_total=%s task_total=%s）跳过写缓存', result['vuln_total'], len(tasks))
         return result
 
     # ─────────── WEB 漏洞（scanlogsystem，report 账号）───────────

@@ -98,6 +98,14 @@
     computed: {
       vulns: function () { return this.filteredVulns; },
       vulnTotal: function () { return this.filteredVulns.length; },
+      // ⚠️ 2026-08-24 v15：资产视图搜索 = 前端过滤完整 assetList（原搜索无效）
+      filteredAssets: function () {
+        var q = (this.aF.ip || '').trim().toLowerCase();
+        if (!q) return this.assetList;
+        return this.assetList.filter(function (a) {
+          return (a.ip || '').toLowerCase().indexOf(q) > -1 || (a.name || '').toLowerCase().indexOf(q) > -1;
+        });
+      },
     },
     mounted: function () {
       this.loadAll();
@@ -441,29 +449,44 @@
         this.fetchVulnsIntoPool();
       },
       // ── 资产视图 ──
+      // ⚠️ 2026-08-24 v15：拉【全量】漏洞分页聚合资产（原来只拉第一页 500 条 → 资产不全、
+      // 且后端忽略 ip 参数导致搜索失效）。搜索改前端过滤 filteredAssets。
       loadAssets: function () {
         var self = this;
+        if (this.loading) return;
         this.loading = true;
-        var q = '?limit=500';
-        if (this.aF.ip) q += '&ip=' + encodeURIComponent(this.aF.ip);
-        fetchJson(API.vulns + q).then(function (j) {
-          self.loading = false;
-          if (j.code !== 200) { self.error = j.message || '资产加载失败'; return; }
-          var map = {};
-          (j.data.data || []).forEach(function (v) {
-            var sid = (v.severity && v.severity.id !== undefined) ? v.severity.id : v.severity;
-            var key = v.ip || v.asset_name || '未知';
-            var a = map[key] || { name: v.asset_name || key, ip: v.ip || '', os: v.os || '', cnt: 0, high: 0 };
-            a.cnt += 1;
-            if (sid === '3' || sid === 3 || sid === '4' || sid === 4) a.high += 1;
-            map[key] = a;
+        this.error = '';
+        var all = [];
+        var start = 0;
+        var total = null;
+        (function fetchPage() {
+          fetchJson(API.vulns + '?limit=500&offset=' + start).then(function (j) {
+            if (j.code !== 200) { self.loading = false; self.error = j.message || '资产加载失败'; return; }
+            var d = j.data || {};
+            if (total === null) total = d.total || 0;
+            all = all.concat(d.data || []);
+            if ((d.data || []).length >= 500 && all.length < total && start < 4500) {
+              start += 500;
+              fetchPage();
+              return;
+            }
+            self.loading = false;
+            var map = {};
+            all.forEach(function (v) {
+              var sid = (v.severity && v.severity.id !== undefined) ? v.severity.id : v.severity;
+              var key = v.ip || v.asset_name || '未知';
+              var a = map[key] || { name: v.asset_name || key, ip: v.ip || '', os: v.os || '', cnt: 0, high: 0 };
+              a.cnt += 1;
+              if (sid === '3' || sid === 3 || sid === '4' || sid === 4) a.high += 1;
+              map[key] = a;
+            });
+            self.assetList = Object.keys(map).map(function (k) { return map[k]; })
+              .sort(function (x, y) { return y.high - x.high || y.cnt - x.cnt; });
+          }).catch(function (e) {
+            self.loading = false;
+            self.error = '请求失败: ' + e;
           });
-          self.assetList = Object.keys(map).map(function (k) { return map[k]; })
-            .sort(function (x, y) { return y.high - x.high || y.cnt - x.cnt; });
-        }).catch(function (e) {
-          self.loading = false;
-          self.error = '请求失败: ' + e;
-        });
+        })();
       },
       filterByAsset: function (a) {
         // 资产"查看漏洞"：切到 vulns 视图 + 设筛选条件 + 重置池
@@ -475,6 +498,11 @@
         this.view = 'vulns';
         // view watch 会自动 searchVulns（若池为空），这里显式触发确保立即重新拉
         this.searchVulns();
+      },
+      // 2026-08-24 v15：资产搜索 = 前端过滤（computed filteredAssets 自动响应 aF.ip）
+      onAssetSearch: function () {
+        // 无额外逻辑——filteredAssets 实时过滤；若资产尚未加载则加载
+        if (this.assetList.length === 0) this.loadAssets();
       },
       // ── 详情 ──
       openVuln: function (v) {
