@@ -25,6 +25,17 @@ logger = logging.getLogger('app')
 SYNC_META_KEY = 'web_sync'
 KEEP_DAYS = 60  # 60 天滚动保留
 
+# 构建/同步锁超时（秒）：超过此时间仍 building 视为失效，调用方应重新触发。
+# 防 uwsgi restart 在同步中途杀线程导致 meta 永久 building=true 卡死。
+BUILDING_TTL = int(os.environ.get('VSCAN_BUILDING_TTL', '600'))
+
+
+def _is_building(meta):
+    """meta 处于同步中且未超时返回 True；超时视为失效，调用方应重新触发。"""
+    if not meta or not meta.get('building'):
+        return False
+    return (time.time() - meta.get('ts', 0)) < BUILDING_TTL
+
 
 def check_new_report():
     """懒检测：vScan 最新任务（queryindex 第一条）vs DB 是否已同步
@@ -52,7 +63,7 @@ def sync_trigger():
     返回 {'building': bool, 'fresh': bool, ...}
     """
     meta = cache_get_meta(SYNC_META_KEY)
-    if meta and meta.get('building'):
+    if _is_building(meta):
         return {'building': True, 'fresh': False, **meta}
     check = check_new_report()
     if check.get('fresh'):
@@ -79,7 +90,7 @@ def sync_all():
     try:
         # 双检：可能别的 worker 正在同步
         meta = cache_get_meta(SYNC_META_KEY)
-        if meta and meta.get('building'):
+        if _is_building(meta):
             return
         client = get_report_client()
         tasks = client.web_tasks(desc=True)
@@ -155,8 +166,19 @@ def _sync_one_task(client, taskid, task_name):
     VscanWebVuln.objects.filter(taskid=taskid).delete()
     VscanWebSite.objects.filter(taskid=taskid).delete()
 
+    def _bulk(model, objs):
+        try:
+            model.objects.bulk_create(objs, batch_size=500, ignore_conflicts=True)
+        except Exception:
+            # 老版本 SQLite 不支持 ON CONFLICT（<3.24）→ 降级为非 ignore 顺序插入
+            for o in objs:
+                try:
+                    o.save()
+                except Exception:
+                    pass
+
     if vulns:
-        VscanWebVuln.objects.bulk_create([
+        _bulk(VscanWebVuln, [
             VscanWebVuln(
                 taskid=taskid, task_name=task_name, severity=int(v.get('severity') or 0),
                 name=v.get('name') or '', url=v.get('url') or '',
@@ -164,13 +186,13 @@ def _sync_one_task(client, taskid, task_name):
                 comment=v.get('comment') or '', testcase=v.get('testcase') or '',
                 pluginid=int(v.get('pluginid') or 0), scan_time=scan_time,
             ) for v in vulns
-        ], batch_size=500, ignore_conflicts=True)
+        ])
     if sites:
-        VscanWebSite.objects.bulk_create([
+        _bulk(VscanWebSite, [
             VscanWebSite(taskid=taskid, task_name=task_name, url=s.get('url') or '',
                          jobid=str(s.get('jobid') or ''), scan_time=scan_time)
             for s in sites
-        ], batch_size=500, ignore_conflicts=True)
+        ])
 
     # 5. 任务统计（site_total 用唯一网站数）
     try:

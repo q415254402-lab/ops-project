@@ -6,4 +6,13 @@
 """
 from .sync import sync_device_info, sync_all_devices, sync_devices
 
-__all__ = ['sync_device_info', 'sync_all_devices', 'sync_devices']
+from .alert import alert_scan
+from .report import (
+    gen_reports, backfill_reports, purge_reports,
+    regenerate_report_summary, backfill_day_summaries,
+)
+__all__ = [
+    'sync_device_info', 'sync_all_devices', 'sync_devices', 'alert_scan',
+    'gen_reports', 'backfill_reports', 'purge_reports', 'regenerate_report_summary',
+    'backfill_day_summaries',
+]

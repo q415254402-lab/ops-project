@@ -194,6 +194,38 @@ def home_page_show_proxy(request):
     return _proxy_platform_api(request, 'home-page-show/')
 
 
+# ─────────────── eSight 安全监控概览（2026-09-01 新增，本地聚合）──────────
+# 不再转发平台，直接调本地 5 大安全模块聚合（数据全在 eSight 本地模型）
+# 前端 dist 通过 /api/control/v0_1/security-overview-{waf,fw,vuln,alert,host}/ 调这 5 个 view
+def security_overview_waf_proxy(request):
+    """GET /api/control/v0_1/security-overview-waf/ — WAF 攻击日志聚合"""
+    from apps.cmdb.api.overview_views import SecurityOverviewWafView
+    return SecurityOverviewWafView.as_view()(request)
+
+
+def security_overview_fw_proxy(request):
+    """GET /api/control/v0_1/security-overview-fw/ — 防火墙日志聚合"""
+    from apps.cmdb.api.overview_views import SecurityOverviewFwView
+    return SecurityOverviewFwView.as_view()(request)
+
+
+def security_overview_vuln_proxy(request):
+    """GET /api/control/v0_1/security-overview-vuln/ — 漏洞扫描聚合（系统+WEB）"""
+    from apps.cmdb.api.overview_views import SecurityOverviewVulnView
+    return SecurityOverviewVulnView.as_view()(request)
+
+
+def security_overview_alert_proxy(request):
+    """GET /api/control/v0_1/security-overview-alert/ — 安全告警聚合"""
+    from apps.cmdb.api.overview_views import SecurityOverviewAlertView
+    return SecurityOverviewAlertView.as_view()(request)
+
+
+def security_overview_host_proxy(request):
+    """GET /api/control/v0_1/security-overview-host/ — 主机监控聚合"""
+    from apps.cmdb.api.overview_views import SecurityOverviewHostView
+    return SecurityOverviewHostView.as_view()(request)
+
 
 def user_info_proxy(request):
     """GET /user_info/ — 转发到平台 user_info（control 前端实际请求 user_info/ 下划线形式）"""
@@ -214,7 +246,18 @@ def get_menu_proxy(request):
         if content.get('code') == 200 and isinstance(content.get('data'), dict):
             data = content['data']
 
+            # 2026-08-25：隐藏「数据统计」分组（含「纳管分析」「后台任务」）
+            # 二者为 OpsAny 平台原生菜单，eSight 不需要。在转发后、返回前端前从菜单树剪除：
+            #  - 按 menu_name/show_name 中文字面匹配（平台菜单显示名稳定，不依赖 id/menu_code，跨版本安全）
+            #  - 父分组（数据统计）子项被剪光后连同父分组一起隐藏，避免空壳
+            #  - 不影响任何其它菜单（资源纳管/WAF/防火墙/漏洞扫描/主机监控等注入逻辑原样保留）
+            _HIDDEN_MENU_NAMES = {'纳管分析', '后台任务'}
+            _HIDE_IF_EMPTY_NAMES = {'数据统计'}
+
             def _patch(node):
+                # 命中隐藏名单的节点直接不保留（其父节点会据此从 children 中剔除它）
+                if node.get('menu_name') in _HIDDEN_MENU_NAMES or node.get('show_name') in _HIDDEN_MENU_NAMES:
+                    return False
                 # ⚠️ 照搬 control 其他菜单的机制：menu_code 对应前端组件映射表 v[code]（已 patch 加 hostMonitor/wafMonitor），
                 # menu_address 是 SPA 路由 path。这样「主机监控」「网络安全设备监控」就是真正的 SPA 路由。
                 if node.get('id') == 47 or node.get('menu_code') == 'node':
@@ -255,12 +298,39 @@ def get_menu_proxy(request):
                             'parent_id': node.get('id'), 'menu_type': 'menu', 'display': 1,
                             'children': [], 'auth': [],
                         })
-                for c in (node.get('children') or []):
-                    _patch(c)
+                    # 2026-08-28：安全告警（Phase 1-② 告警通知）——漏洞扫描后插入
+                    if not any(m.get('menu_code') == 'securityAlert' for m in children):
+                        idx = next((i for i, m in enumerate(children) if m.get('menu_code') == 'vscanMonitor'), 0) + 1
+                        children.insert(idx, {
+                            'id': 900004, 'menu_name': '安全告警', 'show_name': '安全告警',
+                            'priority': '3.2.5', 'menu_code': 'securityAlert', 'menu_address': '/security/securityAlert',
+                            'parent_id': node.get('id'), 'menu_type': 'menu', 'display': 1,
+                            'children': [], 'auth': [],
+                        })
+                    # 2026-09-04：安全报表（日报/周报/月报）——安全告警后插入
+                    if not any(m.get('menu_code') == 'securityReport' for m in children):
+                        idx = next((i for i, m in enumerate(children) if m.get('menu_code') == 'securityAlert'), 0) + 1
+                        children.insert(idx, {
+                            'id': 900005, 'menu_name': '安全报表', 'show_name': '安全报表',
+                            'priority': '3.2.6', 'menu_code': 'securityReport', 'menu_address': '/security/securityReport',
+                            'parent_id': node.get('id'), 'menu_type': 'menu', 'display': 1,
+                            'children': [], 'auth': [],
+                        })
+                # 递归处理子节点，仅保留存活者（剪掉被隐藏的叶节点）
+                children = node.get('children') or []
+                kept = []
+                for c in children:
+                    if _patch(c):
+                        kept.append(c)
+                if 'children' in node:
+                    node['children'] = kept
+                # 空壳父分组隐藏（数据统计分组子项被剪光后整体消失）
+                if node.get('menu_name') in _HIDE_IF_EMPTY_NAMES and children and not kept:
+                    return False
+                return True
 
             if 'children' in data:
-                for n in data['children']:
-                    _patch(n)
+                data['children'] = [n for n in data['children'] if _patch(n)]
             return JsonResponse(content)
     except Exception:
         pass
@@ -367,6 +437,12 @@ CONTROL_API_MAP = {
     'ip-address/': lambda r: _ipm('ip_address_view', r),
     'ip-manager-group/': lambda r: _ipm('ip_manager_group_view', r),
     'ip-manager/': lambda r: _ipm('ip_manager_view', r),
+    # ─── eSight 安全监控概览（5 大模块本地聚合，2026-09-01）───
+    'security-overview-waf/': security_overview_waf_proxy,
+    'security-overview-fw/': security_overview_fw_proxy,
+    'security-overview-vuln/': security_overview_vuln_proxy,
+    'security-overview-alert/': security_overview_alert_proxy,
+    'security-overview-host/': security_overview_host_proxy,
 }
 
 

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>主机监控 - eSight</title>
+<style>
+  body { background: #f0f2f5; margin: 0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; }
+  .hm-header { background: #fff; padding: 12px 24px; box-shadow: 0 1px 4px rgba(0,21,41,.08); display: flex; justify-content: space-between; align-items: center; }
+  .hm-header h1 { font-size: 18px; margin: 0; color: rgba(0,0,0,.85); font-weight: 500; }
+  .hm-header .sub { color: rgba(0,0,0,.45); font-size: 13px; margin-left: 12px; }
+  .hm-stats { display: flex; gap: 16px; padding: 16px 24px 0; }
+  .hm-stat-card { flex: 1; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .hm-stat-card .num { font-size: 28px; font-weight: 500; }
+  .hm-stat-card .lbl { color: rgba(0,0,0,.45); font-size: 13px; margin-top: 4px; }
+  .hm-charts { display: flex; gap: 16px; padding: 16px 24px; }
+  .hm-chart-card { flex: 1; background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .hm-chart-card h3 { font-size: 14px; color: rgba(0,0,0,.85); margin: 0 0 12px; font-weight: 500; }
+  .hm-bottom { display: flex; gap: 16px; padding: 0 24px 24px; }
+  .hm-table-card { flex: 1.5; background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.03); border: 1px solid #f0f0f0; }
+  .hm-table-card h3 { font-size: 14px; color: rgba(0,0,0,.85); margin: 0 0 12px; font-weight: 500; }
+  .hm-table { width: 100%; border-collapse: collapse; }
+  .hm-table th, .hm-table td { padding: 8px 10px; text-align: left; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+  .hm-table th { color: rgba(0,0,0,.45); font-weight: 500; background: #fafafa; }
+  .hm-table td.host { color: #1890ff; cursor: pointer; }
+  .hm-pill { display:inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+  .hm-pill.on { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .hm-pill.off { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+  .hm-pill.alarm { background: #fffbe6; color: #faad14; border: 1px solid #ffe58f; }
+  .hm-loading { text-align: center; padding: 60px; color: rgba(0,0,0,.45); }
+  .hm-refresh { color: #1890ff; cursor: pointer; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="app" style="min-height:100vh">
+  <div class="hm-header">
+    <div><h1>主机监控<span class="sub">数据来源：正式平台 OpsAny + Zabbix</span></h1></div>
+    <div><span class="hm-refresh" @click="loadAll">刷新</span> <span style="color:#999;font-size:12px;margin-left:8px">自动刷新 30s</span></div>
+  </div>
+
+  <div v-if="loading" class="hm-loading">数据加载中...</div>
+  <div v-else>
+    <div class="hm-stats">
+      <div class="hm-stat-card"><div class="num" style="color:#1890ff">{{ stats.total }}</div><div class="lbl">主机总数</div></div>
+      <div class="hm-stat-card"><div class="num" style="color:#52c41a">{{ stats.online }}</div><div class="lbl">在线主机</div></div>
+      <div class="hm-stat-card"><div class="num" style="color:#ff4d4f">{{ stats.offline }}</div><div class="lbl">离线主机</div></div>
+      <div class="hm-stat-card"><div class="num" style="color:#faad14">{{ stats.alarmCount }}</div><div class="lbl">当前告警</div></div>
+      <div class="hm-stat-card"><div class="num" style="color:#722ed1">{{ stats.monitored }}</div><div class="lbl">已监控</div></div>
+    </div>
+
+    <div class="hm-charts">
+      <div class="hm-chart-card"><h3>按分组分布</h3><div ref="groupChart" style="height:240px"></div></div>
+      <div class="hm-chart-card"><h3>按系统类型</h3><div ref="osChart" style="height:240px"></div></div>
+      <div class="hm-chart-card"><h3>按纳管方式</h3><div ref="manageChart" style="height:240px"></div></div>
+      <div class="hm-chart-card"><h3>告警趋势(近24h)</h3><div ref="alarmTrendChart" style="height:240px"></div></div>
+    </div>
+
+    <div class="hm-bottom">
+      <div class="hm-table-card">
+        <h3>CPU / 内存 实时 TOP10</h3>
+        <table class="hm-table">
+          <thead><tr><th>主机</th><th>CPU</th><th>内存</th><th>状态</th></tr></thead>
+          <tbody>
+            <tr v-for="h in topHosts" :key="h.ip">
+              <td class="host" @click="goDetail(h.ip)">{{ h.ip }}</td>
+              <td>{{ fmtPct(h.cpu) }}</td>
+              <td>{{ fmtPct(h.mem) }}</td>
+              <td><span class="hm-pill" :class="h.online ? 'on' : 'off'">{{ h.online ? '在线' : '离线' }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="hm-table-card">
+        <h3>当前告警</h3>
+        <table class="hm-table">
+          <thead><tr><th>主机</th><th>告警</th><th>级别</th></tr></thead>
+          <tbody>
+            <tr v-for="(a,i) in alarms" :key="i">
+              <td class="host" @click="goDetail(a.ip)">{{ a.ip || a.host || '-' }}</td>
+              <td>{{ a.description }}</td>
+              <td><span class="hm-pill alarm">{{ priorityText(a.priority) }}</span></td>
+            </tr>
+            <tr v-if="!alarms.length"><td colspan="3" style="color:#999;text-align:center">暂无告警</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="lib/vue.min.js"></script>
+<script src="lib/echarts.min.js"></script>
+<script src="host-monitor-app.js"></script>
+</body>
+</html>

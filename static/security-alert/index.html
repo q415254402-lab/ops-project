@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>安全告警 - eSight</title>
+<style>
+  * { box-sizing: border-box; }
+  body { background: #f0f2f5; margin: 0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; color: rgba(0,0,0,.85); font-size: 14px; }
+  .sa-header { background: #fff; padding: 16px 24px; box-shadow: 0 1px 4px rgba(0,21,41,.08); margin-bottom: 16px; }
+  .sa-title { font-size: 18px; font-weight: 500; margin: 0 0 4px; }
+  .sa-sub { color: rgba(0,0,0,.45); font-size: 13px; }
+  .sa-body { padding: 0 24px 24px; }
+  .sa-card { background: #fff; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,21,41,.08); margin-bottom: 16px; }
+  .sa-card-head { padding: 14px 20px; border-bottom: 1px solid #f0f0f0; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: space-between; }
+  .sa-card-body { padding: 20px; }
+  .sa-stats { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .sa-stat { flex: 1; min-width: 150px; background: #fff; border-radius: 4px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,21,41,.08); cursor: pointer; transition: box-shadow .2s, border-color .2s; border: 1px solid transparent; }
+  .sa-stat:hover { box-shadow: 0 2px 8px rgba(24,144,255,.18); border-color: #91d5ff; }
+  .sa-stat.active { border-color: #1890ff; background: #e6f7ff; }
+  .sa-stat-label { color: rgba(0,0,0,.45); font-size: 13px; margin-bottom: 8px; }
+  .sa-stat-hint { color: rgba(0,0,0,.25); font-size: 11px; margin-top: 6px; }
+  .sa-stat-value { font-size: 26px; font-weight: 500; line-height: 1.2; }
+  .sa-stat-value.firing { color: #cf1322; }
+  .sa-stat-value.acked { color: #d46b08; }
+  .sa-stat-value.resolved { color: #389e0d; }
+  .sa-stat-value.suppressed { color: rgba(0,0,0,.45); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; background: #fafafa; border-bottom: 1px solid #f0f0f0; color: rgba(0,0,0,.85); font-weight: 500; white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  .sa-tag { display: inline-block; padding: 1px 8px; border-radius: 2px; font-size: 12px; line-height: 20px; border: 1px solid; }
+  .sa-tag.firing { color: #cf1322; background: #fff1f0; border-color: #ffa39e; }
+  .sa-tag.acked { color: #d46b08; background: #fff7e6; border-color: #ffd591; }
+  .sa-tag.resolved { color: #389e0d; background: #f6ffed; border-color: #b7eb8f; }
+  .sa-tag.suppressed { color: rgba(0,0,0,.45); background: #fafafa; border-color: #d9d9d9; }
+  .sa-btn { display: inline-block; padding: 4px 12px; border-radius: 2px; border: 1px solid #d9d9d9; background: #fff; cursor: pointer; font-size: 13px; color: rgba(0,0,0,.85); margin-right: 6px; }
+  .sa-btn:hover { border-color: #1890ff; color: #1890ff; }
+  .sa-btn.primary { background: #1890ff; border-color: #1890ff; color: #fff; }
+  .sa-btn.primary:hover { background: #40a9ff; border-color: #40a9ff; color: #fff; }
+  .sa-btn:disabled { cursor: not-allowed; opacity: .55; border-color: #d9d9d9; color: rgba(0,0,0,.25); background: #f5f5f5; }
+  .sa-btn:disabled:hover { border-color: #d9d9d9; color: rgba(0,0,0,.25); background: #f5f5f5; }
+  .sa-form-row { display: flex; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  /* 修复 v8：仅匹配 .sa-form-row 的直接子 label，不再误中 .sa-switch 包装的 label */
+  .sa-form-row > label { width: 150px; color: rgba(0,0,0,.85); flex-shrink: 0; }
+  .sa-form-row .sa-ctl { flex: 1; min-width: 200px; }
+  .sa-form-row .sa-hint { width: 100%; margin-left: 150px; color: rgba(0,0,0,.45); font-size: 12px; margin-top: 2px; }
+  input[type=text], input[type=number], select { width: 100%; max-width: 380px; padding: 5px 11px; border: 1px solid #d9d9d9; border-radius: 2px; font-size: 14px; color: rgba(0,0,0,.85); }
+  input:focus, select:focus { outline: none; border-color: #1890ff; box-shadow: 0 0 0 2px rgba(24,144,255,.2); }
+  /* 修复 v8：硬定宽 !important，防御未来再有祖先级 width 选择器干扰 */
+  .sa-switch { position: relative; display: inline-block; width: 44px !important; height: 22px; flex-shrink: 0; box-sizing: border-box; vertical-align: middle; }
+  .sa-switch input { opacity: 0; width: 0; height: 0; }
+  .sa-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.25); transition: .2s; border-radius: 22px; }
+  .sa-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background: #fff; transition: .2s; border-radius: 50%; }
+  input:checked + .sa-slider { background: #1890ff; }
+  input:checked + .sa-slider:before { transform: translateX(22px); }
+  .sa-msg { padding: 8px 12px; border-radius: 2px; margin-bottom: 12px; font-size: 13px; }
+  .sa-msg.ok { background: #f6ffed; border: 1px solid #b7eb8f; color: #389e0d; }
+  .sa-msg.err { background: #fff1f0; border: 1px solid #ffa39e; color: #cf1322; }
+  .sa-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .sa-filters input, .sa-filters select { width: auto; min-width: 130px; }
+  .sa-empty { padding: 40px; text-align: center; color: rgba(0,0,0,.45); }
+  .sa-pager { padding: 14px 20px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; font-size: 13px; }
+  .sa-mono { font-family: "SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; font-size: 12px; color: rgba(0,0,0,.65); }
+  .sa-sec { border-left: 3px solid #1890ff; padding-left: 8px; margin: 22px 0 14px; font-size: 14px; font-weight: 500; }
+  .sa-sec:first-child { margin-top: 0; }
+  .sa-note { background: #e6f7ff; border: 1px solid #91d5ff; padding: 8px 12px; border-radius: 2px; font-size: 13px; color: rgba(0,0,0,.75); margin-bottom: 14px; line-height: 1.6; }
+  /* 详情抽屉 */
+  .sa-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000; display: flex; justify-content: flex-end; }
+  .sa-drawer { width: 960px; max-width: 94vw; background: #fff; height: 100%; display: flex; flex-direction: column; box-shadow: -2px 0 8px rgba(0,0,0,.15); animation: saSlideIn .2s ease; }
+  @keyframes saSlideIn { from { transform: translateX(30px); opacity: .6; } to { transform: translateX(0); opacity: 1; } }
+  .sa-drawer-head { padding: 14px 20px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 500; flex-shrink: 0; }
+  .sa-drawer-body { padding: 20px; overflow: auto; flex: 1; }
+  .sa-drawer-sec { border-left: 3px solid #1890ff; padding-left: 8px; margin: 18px 0 12px; font-size: 14px; font-weight: 500; }
+  .sa-drawer-sec:first-child { margin-top: 0; }
+  .sa-detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 24px; }
+  .sa-detail-grid > div { display: flex; gap: 8px; font-size: 13px; align-items: baseline; }
+  .sa-detail-grid .l { color: rgba(0,0,0,.45); width: 72px; flex-shrink: 0; }
+  .sa-detail-grid .v { color: rgba(0,0,0,.85); word-break: break-word; overflow-wrap: anywhere; }
+  /* 抽屉日志表横向滚动，避免 13 列挤列把原始报文压成竖排 */
+  .sa-table-scroll { overflow-x: auto; border: 1px solid #f0f0f0; border-radius: 2px; }
+  .sa-table-scroll table { min-width: 1300px; }
+  .sa-table-scroll th, .sa-table-scroll td { white-space: nowrap; }
+  /* 长文本字段：按词断行 + 列宽上限，避免被 nowrap 横向溢出 */
+  .sa-table-scroll td.sa-raw,
+  .sa-table-scroll td.sa-msg-col { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; min-width: 360px; max-width: 720px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="sa-header">
+    <h1 class="sa-title">安全告警</h1>
+    <div class="sa-sub">WAF / 防火墙高危攻击监测 · 事件收敛 · 生命周期管理</div>
+  </div>
+
+  <div class="sa-body">
+    <div v-if="msg" :class="['sa-msg', msgCls]">{{ msg }}</div>
+
+    <!-- 统计卡 -->
+    <div class="sa-stats">
+      <div :class="['sa-stat', filter.status==='firing'?'active':'']"    @click="filterByStatus('firing')"><div class="sa-stat-label">触发中</div><div class="sa-stat-value firing">{{ stats.firing }}</div><div class="sa-stat-hint">点击查看触发中事件</div></div>
+      <div :class="['sa-stat', filter.status==='acked'?'active':'']"     @click="filterByStatus('acked')"><div class="sa-stat-label">已确认</div><div class="sa-stat-value acked">{{ stats.acked }}</div><div class="sa-stat-hint">点击查看已确认事件</div></div>
+      <div :class="['sa-stat', filter.status==='resolved'?'active':'']"  @click="filterByStatus('resolved')"><div class="sa-stat-label">已恢复</div><div class="sa-stat-value resolved">{{ stats.resolved }}</div><div class="sa-stat-hint">点击查看已恢复事件</div></div>
+      <div :class="['sa-stat', filter.status==='suppressed'?'active':'']" @click="filterByStatus('suppressed')"><div class="sa-stat-label">已忽略</div><div class="sa-stat-value suppressed">{{ stats.suppressed }}</div><div class="sa-stat-hint">点击查看已忽略事件</div></div>
+      <div :class="['sa-stat', filter.status===''?'active':'']"           @click="filterByStatus('')"><div class="sa-stat-label">事件总数</div><div class="sa-stat-value">{{ stats.total }}</div><div class="sa-stat-hint">点击查看全部事件</div></div>
+    </div>
+
+    <!-- 操作区 -->
+    <div class="sa-card">
+      <div class="sa-card-head">
+        <span>检测与调度</span>
+        <span>
+          <button class="sa-btn primary" @click="scan" :disabled="scanning">{{ scanning ? '检测中…' : '立即检测' }}</button>
+        </span>
+      </div>
+      <div class="sa-card-body">
+        <div class="sa-note">
+          定时扫描由 Celery beat 调度，周期在下方规则中配置（默认 60 分钟）。同一攻击事件在冷却期内不会重复推送，但会持续累计次数；超过恢复判定时间未再出现则自动标记为已恢复。
+        </div>
+        <div v-if="latest" style="font-size:13px;color:rgba(0,0,0,.65);line-height:1.8;">
+          最近一次检测（{{ latest.trigger === 'scheduled' ? '定时' : '手动' }}）：新增 <b>{{ latest.events_new }}</b> 个事件，
+          复现 <b>{{ latest.events_recurred }}</b> 个，冷却抑制 <b>{{ latest.events_suppressed }}</b> 个，
+          恢复 <b>{{ latest.events_resolved }}</b> 个；窗口内命中 WAF {{ latest.waf_new }} 条 / 防火墙 {{ latest.fw_new }} 条。
+          <span v-if="latest.notified">已推送（{{ latest.channels || '无通道' }}）</span>
+          <span v-else>未推送</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 告警事件列表 -->
+    <div class="sa-card">
+      <div class="sa-card-head">
+        <span>告警事件（{{ total }}）</span>
+        <div class="sa-filters">
+          <select v-model="filter.status" @change="loadEvents(1)">
+            <option value="">全部状态</option>
+            <option value="firing">触发中</option>
+            <option value="acked">已确认</option>
+            <option value="resolved">已恢复</option>
+            <option value="suppressed">已忽略</option>
+          </select>
+          <select v-model="filter.source" @change="loadEvents(1)">
+            <option value="">全部来源</option>
+            <option value="WAF">WAF攻击日志</option>
+            <option value="Firewall">防火墙日志</option>
+          </select>
+          <input type="text" v-model="filter.keyword" placeholder="类型/IP/指纹" @keyup.enter="loadEvents(1)">
+          <button class="sa-btn" @click="loadEvents(1)">查询</button>
+        </div>
+      </div>
+      <div v-if="events.length">
+        <table>
+          <thead>
+            <tr>
+              <th>状态</th><th>来源</th><th>攻击类型</th><th>源 → 目的</th>
+              <th>级别</th><th>累计</th><th>首次出现</th><th>最后出现</th><th style="width:190px;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="e in events" :key="e.fingerprint">
+              <td><span :class="['sa-tag', e.status]">{{ statusText(e.status) }}</span></td>
+              <td>{{ sourceText(e.source) }}</td>
+              <td>
+                <div>{{ eventTypeText(e.event_type) }}</div>
+                <div class="sa-mono" style="color:rgba(0,0,0,.4);font-size:11px;">{{ e.event_type || '(未知)' }}</div>
+              </td>
+              <td>{{ e.src_ip || '-' }} → {{ e.dst_ip || '-' }}</td>
+              <td>{{ severityText(e.severity) }}</td>
+              <td>{{ e.occurrence }}</td>
+              <td class="sa-mono">{{ e.first_seen }}</td>
+              <td class="sa-mono">{{ e.last_seen }}</td>
+              <td>
+                <button class="sa-btn" @click="openDetail(e)">详情</button>
+                <button v-if="e.status === 'firing'" class="sa-btn" @click="act(e, 'ack')">确认</button>
+                <button v-if="e.status === 'acked'" class="sa-btn" @click="act(e, 'unack')">取消确认</button>
+                <button v-if="e.status !== 'suppressed'" class="sa-btn" @click="act(e, 'suppress')">忽略</button>
+                <button v-if="e.status === 'resolved' || e.status === 'suppressed'" class="sa-btn" @click="act(e, 'reopen')">重新打开</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="sa-pager">
+          <span>共 {{ total }} 条</span>
+          <button class="sa-btn" :disabled="page <= 1" @click="loadEvents(page - 1)">上一页</button>
+          <span>第 {{ page }} 页</span>
+          <button class="sa-btn" :disabled="page * pageSize >= total" @click="loadEvents(page + 1)">下一页</button>
+        </div>
+      </div>
+      <div v-else class="sa-empty">暂无告警事件</div>
+    </div>
+
+    <!-- 规则配置 -->
+    <div class="sa-card">
+      <div class="sa-card-head"><span>规则配置</span>
+        <button class="sa-btn primary" @click="saveRule" :disabled="saving">{{ saving ? '保存中…' : '保存规则' }}</button>
+      </div>
+      <div class="sa-card-body">
+        <div class="sa-sec">基础判定</div>
+        <div class="sa-form-row">
+          <label>启用告警</label>
+          <div class="sa-ctl"><label class="sa-switch"><input type="checkbox" v-model="rule.enabled"><span class="sa-slider"></span></label></div>
+        </div>
+        <div class="sa-form-row">
+          <label>严重级别阈值</label>
+          <div class="sa-ctl">
+            <select v-model="rule.severity_threshold">
+              <option value="high">高及以上</option>
+              <option value="medium">中及以上</option>
+              <option value="low">低及以上</option>
+            </select>
+          </div>
+        </div>
+        <div class="sa-form-row">
+          <label>检测时间窗（分钟）</label>
+          <div class="sa-ctl"><input type="number" v-model.number="rule.window_minutes" min="1"></div>
+        </div>
+        <div class="sa-form-row">
+          <label>纳入未知级别</label>
+          <div class="sa-ctl">
+            <label class="sa-switch"><input type="checkbox" v-model="rule.include_unknown_severity"><span class="sa-slider"></span></label>
+          </div>
+          <div class="sa-hint">WAF/FW 存在空 severity 记录，开启后按 unknown 纳入统计</div>
+        </div>
+
+        <div class="sa-sec">调度与收敛</div>
+        <div class="sa-form-row">
+          <label>定时扫描周期（分钟）</label>
+          <div class="sa-ctl"><input type="number" v-model.number="rule.scan_interval_minutes" min="0"></div>
+          <div class="sa-hint">0 表示仅手动检测；修改后无需重启，任务内部按此节流</div>
+        </div>
+        <div class="sa-form-row">
+          <label>同事件冷却期（分钟）</label>
+          <div class="sa-ctl"><input type="number" v-model.number="rule.cooldown_minutes" min="0"></div>
+          <div class="sa-hint">同一事件在冷却期内不重复推送，但持续累计次数</div>
+        </div>
+        <div class="sa-form-row">
+          <label>恢复判定时间（分钟）</label>
+          <div class="sa-ctl"><input type="number" v-model.number="rule.resolve_after_minutes" min="1"></div>
+          <div class="sa-hint">事件超过该时长未再出现即判定为已恢复</div>
+        </div>
+        <div class="sa-form-row">
+          <label>恢复时推送通知</label>
+          <div class="sa-ctl"><label class="sa-switch"><input type="checkbox" v-model="rule.notify_on_resolve"><span class="sa-slider"></span></label></div>
+          <div class="sa-hint">关闭后仅在触发时通知，恢复不另行推送</div>
+        </div>
+
+        <div class="sa-sec">推送通道</div>
+        <div class="sa-form-row">
+          <label>钉钉推送</label>
+          <div class="sa-ctl"><label class="sa-switch"><input type="checkbox" v-model="rule.dingtalk_enabled"><span class="sa-slider"></span></label></div>
+        </div>
+        <div class="sa-form-row">
+          <label>钉钉 Webhook</label>
+          <div class="sa-ctl"><input type="text" v-model="rule.dingtalk_webhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=..."></div>
+        </div>
+        <div class="sa-form-row">
+          <label>邮件推送</label>
+          <div class="sa-ctl"><label class="sa-switch"><input type="checkbox" v-model="rule.email_enabled"><span class="sa-slider"></span></label></div>
+        </div>
+        <div class="sa-form-row">
+          <label>邮件接收人</label>
+          <div class="sa-ctl"><input type="text" v-model="rule.email_to" placeholder="多个用逗号分隔"></div>
+        </div>
+        <div class="sa-form-row">
+          <label>邮件主题前缀</label>
+          <div class="sa-ctl"><input type="text" v-model="rule.email_subject_prefix"></div>
+          <div class="sa-hint">未配置 SMTP 环境变量时邮件仅落库不发送</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 扫描记录 -->
+    <div class="sa-card">
+      <div class="sa-card-head"><span>扫描记录</span></div>
+      <div v-if="records.length">
+        <table>
+          <thead>
+            <tr><th>时间</th><th>触发</th><th>窗口</th><th>WAF</th><th>防火墙</th><th>新增</th><th>复现</th><th>抑制</th><th>恢复</th><th>推送</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in records" :key="r.id">
+              <td class="sa-mono">{{ r.scan_time }}</td>
+              <td>{{ r.trigger === 'scheduled' ? '定时' : '手动' }}</td>
+              <td>{{ r.window_minutes }}分</td>
+              <td>{{ r.waf_new }}</td><td>{{ r.fw_new }}</td>
+              <td>{{ r.events_new }}</td><td>{{ r.events_recurred }}</td>
+              <td>{{ r.events_suppressed }}</td><td>{{ r.events_resolved }}</td>
+              <td>{{ r.notified ? (r.channels || '是') : '否' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-else class="sa-empty">暂无扫描记录</div>
+    </div>
+
+    <!-- 事件详情抽屉 -->
+    <div v-if="drawerVisible" class="sa-mask" @click.self="closeDetail">
+      <div class="sa-drawer">
+        <div class="sa-drawer-head">
+          <span>事件详情</span>
+          <button class="sa-btn" @click="closeDetail">关闭</button>
+        </div>
+        <div class="sa-drawer-body" v-if="detailEvent">
+          <div class="sa-drawer-sec">概要</div>
+          <div class="sa-detail-grid">
+            <div><span class="l">指纹</span><span class="v sa-mono">{{ detailEvent.fingerprint_short }}</span></div>
+            <div><span class="l">状态</span><span class="v"><span :class="['sa-tag', detailEvent.status]">{{ statusText(detailEvent.status) }}</span></span></div>
+            <div><span class="l">级别</span><span class="v">{{ severityText(detailEvent.severity) }}</span></div>
+            <div><span class="l">来源</span><span class="v">{{ sourceText(detailEvent.source) }}</span></div>
+            <div><span class="l">攻击类型</span><span class="v">{{ eventTypeText(detailEvent.event_type) }}<div class="sa-mono" style="font-size:11px;color:rgba(0,0,0,.4)">{{ detailEvent.event_type }}</div></span></div>
+            <div><span class="l">源 → 目的</span><span class="v sa-mono">{{ detailEvent.src_ip }} → {{ detailEvent.dst_ip }}</span></div>
+            <div><span class="l">累计次数</span><span class="v">{{ detailEvent.occurrence }}</span></div>
+            <div><span class="l">持续时长</span><span class="v">{{ detailEvent.duration_text }}</span></div>
+            <div><span class="l">首次出现</span><span class="v sa-mono">{{ detailEvent.first_seen }}</span></div>
+            <div><span class="l">最后出现</span><span class="v sa-mono">{{ detailEvent.last_seen }}</span></div>
+          </div>
+          <div v-if="detailEvent.acked_by" class="sa-note">处置人：{{ detailEvent.acked_by }}　备注：{{ detailEvent.ack_note || '（无）' }}</div>
+
+          <div class="sa-drawer-sec">
+            原始攻击日志（{{ detailLogs.total }} 条）
+            <span style="float:right;">
+              <a v-if="detailJump" class="sa-btn" :href="detailJump.waf" target="_blank">在 WAF 日志查看</a>
+              <a v-if="detailJump" class="sa-btn" :href="detailJump.fw" target="_blank">在防火墙日志查看</a>
+            </span>
+          </div>
+          <div v-if="detailLoading" class="sa-empty">加载中…</div>
+          <div v-else-if="detailLogs.results.length" class="sa-table-scroll">
+            <table>
+              <thead><tr><th v-for="k in logColumns()" :key="k">{{ logLabel(k) }}</th></tr></thead>
+              <tbody>
+                <tr v-for="(log, i) in detailLogs.results" :key="i">
+                  <td v-for="k in logColumns()" :key="k"
+                      :class="logCellClass(k)">{{ logCell(log, k) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="sa-empty">该事件未匹配到原始日志</div>
+          <div v-if="detailLogs.total > detailLogs.page_size" class="sa-pager">
+            <button class="sa-btn" :disabled="detailPage<=1" @click="detailChangePage(detailPage-1)">上一页</button>
+            <span>第 {{ detailPage }} / {{ detailTotalPages() }} 页</span>
+            <button class="sa-btn" :disabled="detailPage>=detailTotalPages()" @click="detailChangePage(detailPage+1)">下一页</button>
+          </div>
+        </div>
+        <div class="sa-drawer-body sa-empty" v-else>加载中…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../host-monitor/lib/vue.min.js"></script>
+<script src="security-alert-app.js?v=9"></script>
+</body>
+</html>

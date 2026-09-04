@@ -299,15 +299,53 @@ _ESIGHT_BEAT = {
         'task': 'apps.cmdb.tasks.sync_devices',
         'schedule': 1800.0,
     },
+    'security-alert-scan': {
+        'task': 'apps.cmdb.tasks.alert_scan',
+        'schedule': 60.0,  # beat 每分钟触发；任务内部按 AlertRule.scan_interval_minutes 节流
+    },
     'scheduled-discovery': {
         'task': 'apps.discovery.tasks.scheduled_discovery',
         'schedule': 600.0,
+    },
+    'security-report-gen': {
+        'task': 'apps.cmdb.tasks.gen_reports',
+        'schedule': 3600.0,
+    },
+    # 2026-09-04：日报历史回填（从数据源最早日到昨天，上限 30 天，幂等）
+    'security-report-backfill': {
+        'task': 'apps.cmdb.tasks.backfill_reports',
+        'schedule': 86400.0,
+    },
+    # 2026-09-04：保留策略清理（日报 90 / 周报 104 / 月报永久）
+    'security-report-purge': {
+        'task': 'apps.cmdb.tasks.purge_reports',
+        'schedule': 86400.0,
     },
 }
 try:
     CELERY_BEAT_SCHEDULE.update(_ESIGHT_BEAT)  # noqa: F405
 except NameError:
     CELERY_BEAT_SCHEDULE = _ESIGHT_BEAT
+
+# ============================================================
+# 周期任务注册 —— 关键修复（v10，2026-08-31）
+# ------------------------------------------------------------
+# 根因：blueapps 的 celery app 用的是 ``app.config_from_object("django.conf:settings")``
+# 且 namespace=None（见 site-packages/blueapps/core/celery/celery.py）。于是：
+#   1) beat 实际读取的是 settings 里小写字面值 ``beat_schedule``；
+#   2) Django 的 Settings 只导入「大写」配置，小写 ``beat_schedule`` 被静默丢弃；
+# 两者叠加 → app.conf.beat_schedule 永远为空 → beat 一份周期任务都不注册 →
+# 所有定时任务（采集 / LLDP / 拓扑 / 设备同步 / 发现 / 安全告警）全部不触发，
+# 只能手动点「立即检测」。
+# 直接把周期表写进 celery app 的 conf（绕过 Django 大写过滤 + settings 只读限制），
+# beat 即可正确加载。不要用 on_after_finalize + add_periodic_task 注册——
+# 它的回写目标是 django.conf.settings（只读），会静默失败。
+# ============================================================
+try:
+    from blueapps.core.celery import celery_app
+    celery_app.conf.update(beat_schedule=CELERY_BEAT_SCHEDULE)
+except Exception:  # pragma: no cover - 注册失败不应阻断启动
+    pass
 
 # ============================================================
 # Celery 启用声明（按 OpsAny 新手指南「配置修改」章节）

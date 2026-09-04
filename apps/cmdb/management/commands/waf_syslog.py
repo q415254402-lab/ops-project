@@ -103,7 +103,7 @@ class Command(BaseCommand):
         ctl = {'backoff': BACKOFF_BASE}
         threading.Thread(target=self._writer_loop, args=(q, device_type), daemon=True).start()
 
-        stats = {'recv': 0, 'filter_drop': 0, 'queue_drop': 0, 'parse_fail': 0}
+        stats = {'recv': 0, 'filter_drop': 0, 'queue_drop': 0, 'parse_fail': 0, 'url_drop': 0}
         last_stat = time.time()
         last_cpu = _read_proc_stat()
         hz = os.sysconf('SC_CLK_TCK') or 100
@@ -133,6 +133,10 @@ class Command(BaseCommand):
                 if not item:
                     stats['parse_fail'] += 1
                     continue
+                # 2026-08-24：不再采集「URL过滤」类日志（event_type 含 url，与前端 typeText 归类一致）
+                if 'url' in (item.get('event_type') or '').lower():
+                    stats['url_drop'] += 1
+                    continue
                 # 精确过滤（v1 逻辑保留，防止快速预过滤误命中）
                 abstract = item.pop('abstract', '') or ''
                 if keep_prefix:
@@ -160,9 +164,9 @@ class Command(BaseCommand):
                     ctl['backoff'] = BACKOFF_BASE
                 self.stdout.write(
                     f'[waf_syslog] {port} recv={stats["recv"]} filter_drop={stats["filter_drop"]} '
-                    f'queue_drop={stats["queue_drop"]} parse_fail={stats["parse_fail"]} '
+                    f'url_drop={stats["url_drop"]} queue_drop={stats["queue_drop"]} parse_fail={stats["parse_fail"]} '
                     f'cpu={cpu_pct:.1f}% backoff={ctl["backoff"]:.3f}s qsize={q.qsize()}')
-                stats = {'recv': 0, 'filter_drop': 0, 'queue_drop': 0, 'parse_fail': 0}
+                stats = {'recv': 0, 'filter_drop': 0, 'queue_drop': 0, 'parse_fail': 0, 'url_drop': 0}
                 last_cpu = now_cpu
                 last_stat = time.time()
 

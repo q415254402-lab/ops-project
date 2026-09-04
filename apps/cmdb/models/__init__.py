@@ -21,6 +21,12 @@ from .ip_management import (
 from .waf_security import WafAttackLog
 # v3 vScan WEB 漏洞落库（2026-08-22）
 from .vscan_web import VscanWebTask, VscanWebSite, VscanWebVuln
+# v3 vScan 系统漏洞落库（2026-08-26，复用 WEB 模式）
+from .vscan_sys import VscanVuln
+# v7 安全告警（2026-08-28，规则配置 + 扫描记录）
+from .security_alert import AlertRule, AlertRecord, AlertEvent
+# v8 安全报表（日/周/月报落库，2026-09-03）
+from .security_report import SecurityReport
 
 __all__ = [
     'Manufacturer', 'Credential',
@@ -42,4 +48,10 @@ __all__ = [
     'WafAttackLog',
     # v3 vScan WEB 漏洞落库（2026-08-22）
     'VscanWebTask', 'VscanWebSite', 'VscanWebVuln',
+    # v3 vScan 系统漏洞落库（2026-08-26）
+    'VscanVuln',
+    # v7 安全告警（2026-08-28）
+    'AlertRule', 'AlertRecord',
+    # v8 安全报表（2026-09-03）
+    'SecurityReport',
 ]

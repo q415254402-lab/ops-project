@@ -38,14 +38,35 @@ except ImportError:
 logger = logging.getLogger('app')
 
 # vScan 配置（环境变量可覆盖）
-VSCAN_HOST = 'https://192.168.100.2'
-VSCAN_USERNAME = 'operator'
-VSCAN_PASSWORD = 'Operator@123'
-VSCAN_TIMEOUT = 60
+VSCAN_HOST = os.environ.get('VSCAN_HOST', 'https://192.168.100.2')
+VSCAN_USERNAME = os.environ.get('VSCAN_USERNAME', 'operator')
+VSCAN_PASSWORD = os.environ.get('VSCAN_PASSWORD', 'Operator@123')
+VSCAN_TIMEOUT = int(os.environ.get('VSCAN_TIMEOUT', '60'))
 
 # report 账号（2026-08-21：WEB 漏洞在 scanlogsystem，需独立账号避免与 operator 互踢）
-VSCAN_REPORT_USERNAME = 'report'
-VSCAN_REPORT_PASSWORD = 'Report@123'
+VSCAN_REPORT_USERNAME = os.environ.get('VSCAN_REPORT_USERNAME', 'report')
+VSCAN_REPORT_PASSWORD = os.environ.get('VSCAN_REPORT_PASSWORD', 'Report@123')
+
+# 构建/同步锁超时（秒）：超过此时间仍 building 视为失效，调用方应重新触发。
+# 防 uwsgi restart 在构建/同步中途杀线程导致 meta 永久 building=true 卡死。
+BUILDING_TTL = int(os.environ.get('VSCAN_BUILDING_TTL', '600'))
+
+
+def _is_building(meta):
+    """meta 处于构建中且未超时返回 True；超时视为失效，调用方应重新触发。"""
+    if not meta or not meta.get('building'):
+        return False
+    return (time.time() - meta.get('ts', 0)) < BUILDING_TTL
+
+
+def _sync_building():
+    """同步进行中（防并发登录 report 账号互踢）。懒导入避免循环依赖。"""
+    try:
+        from apps.cmdb.services.vscan_web_sync import SYNC_META_KEY
+        return _is_building(cache_get_meta(SYNC_META_KEY))
+    except Exception:
+        return False
+
 
 # 会话文件（容器内多 worker 共享文件系统；路径在 esight code 目录，重启不丢）
 _SESSION_FILE = os.environ.get(
@@ -620,7 +641,11 @@ class VScanClient(object):
                     'site_total': data.get('site_total', 0),
                     'vuln_total': data.get('vuln_total', 0),
                     'high_cnt': data.get('high_cnt', 0)}
-        if meta and meta.get('building') and not force:
+        # ⚠️ #7：同步进行中避免并发登录 report 账号互踢 → 软降级（不触发构建/不登录）
+        if not force and _sync_building():
+            return {'building': True, 'done': False, 'syncing': True,
+                    'msg': '数据同步中，请稍候再查看 WEB 全量'}
+        if _is_building(meta) and not force:
             return {'building': True, 'done': False,
                     'task_total': meta.get('task_total', 0),
                     'site_total': meta.get('site_total', 0),
@@ -631,7 +656,7 @@ class VScanClient(object):
         try:
             # 双检：可能刚被别的 worker 触发
             meta = cache_get_meta(CACHE_KEY)
-            if meta and meta.get('building') and not force:
+            if _is_building(meta) and not force:
                 return {'building': True, 'done': False, 'msg': '后台构建中，请稍候'}
             cache_set_meta(CACHE_KEY, {'building': True, 'task_total': 0,
                                        'site_total': 0, 'vuln_total': 0,
@@ -695,7 +720,7 @@ class VScanClient(object):
             uniq = {}
             high_cnt = 0
             for v in all_vulns:
-                key = (str(v.get('severity')), str(v.get('name')))
+                key = (str(v.get('severity')), str(v.get('name')), str(v.get('url')))
                 if key not in uniq:
                     uniq[key] = v
                     if str(v.get('severity')) == '0':

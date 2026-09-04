@@ -55,7 +55,7 @@
 <div id="app" style="min-height:100vh">
   <div class="vs-header">
     <div><h1>漏洞扫描<span class="sub">数据来源：华为 vScan（VSCAN1506）实时透传</span></h1></div>
-    <div><span class="vs-refresh" @click="loadAll">刷新</span></div>
+    <div><span class="vs-refresh" @click="loadAll(true)">刷新</span></div>
   </div>
 
   <div class="vs-nav">
@@ -117,6 +117,9 @@
       <input v-model="f.asset_name" placeholder="资产名称" style="width:150px" @keyup.enter="searchVulns">
       <input v-model="f.port" placeholder="端口" style="width:90px" @keyup.enter="searchVulns">
       <button class="btn" @click="searchVulns">查询</button>
+      <button class="btn btn-ghost" @click="loadVulnView(true)" :disabled="vulnSyncBuilding">同步数据</button>
+      <button class="btn" style="background:#52c41a" @click="exportVulns">导出CSV</button>
+      <span v-if="vulnSyncBuilding" style="color:#1890ff;font-size:13px;margin-left:10px">{{ vulnSyncMsg || '同步中…' }}</span>
       <span style="color:#999;font-size:13px;margin-left:auto">共 {{ vulnTotal }} 条</span>
     </div>
     <div class="vs-table-card" style="margin-top:16px">
@@ -146,6 +149,8 @@
     <div class="vs-filter">
       <input v-model="aF.ip" placeholder="设备IP / 资产名称" style="width:180px" @input="onAssetSearch">
       <button class="btn" @click="onAssetSearch">查询</button>
+      <button class="btn btn-ghost" @click="loadVulnView(true)" :disabled="vulnSyncBuilding">同步数据</button>
+      <span v-if="vulnSyncBuilding" style="color:#1890ff;font-size:13px;margin-left:10px">{{ vulnSyncMsg || '同步中…' }}</span>
       <span style="color:#999;font-size:13px;margin-left:auto">共 {{ filteredAssets.length }} 个资产<span v-if="filteredAssets.length !== assetList.length">（匹配 {{ assetList.length }} 个）</span></span>
     </div>
     <div class="vs-table-card" style="margin-top:16px">
@@ -177,6 +182,7 @@
       </select>
       <span v-if="webCurrentTaskid" style="color:#999;font-size:13px;margin-left:12px">当前：<b>{{ currentWebTaskName() }}</b>（第一条 = 最新报告）</span>
       <span style="margin-left:auto">
+        <button class="btn" style="background:#52c41a;margin-right:8px" @click="exportWebVulns" :disabled="!webCurrentTaskid">导出CSV</button>
         <button class="btn" style="margin-right:8px" @click="openCompare">报告对比</button>
         <button class="btn" style="background:#13c2c2" @click="syncNow" :disabled="webSyncBuilding">同步最新报告</button>
       </span>
@@ -303,6 +309,6 @@
 
 <script src="../host-monitor/lib/vue.min.js"></script>
 <script src="../host-monitor/lib/echarts.min.js"></script>
-<script src="vscan-monitor-app.js?v=15"></script>
+<script src="vscan-monitor-app.js?v=18"></script>
 </body>
 </html>

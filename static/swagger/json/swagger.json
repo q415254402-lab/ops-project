@@ -1,0 +1,1822 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "CMDB API文档",
+    "version": "1.0.0",
+    "title": "CMDB API"
+  },
+  "host": "dev.womaiyun.com",
+  "basePath": "/t/cmdb/api/cmdb/v0_1/",
+  "schemes": [
+    "http"
+  ],
+  "paths": {
+    "/auth-access/": {
+      "post": {
+        "tags": [
+          "/auth-access/"
+        ],
+        "summary": "access认证接口",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "service_provider",
+                "name",
+                "keyid",
+                "key"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "example": "阿里云1"
+                },
+                "service_provider": {
+                  "type": "string",
+                  "example": "1"
+                },
+                "keyid": {
+                  "type": "string",
+                  "example": "YOUR_ACCESS_KEY_ID"
+                },
+                "key": {
+                  "type": "string",
+                  "example": "YOUR_ACCESS_KEY_SECRET"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Access正确，请进行下一步操作"
+          },
+          "404": {
+            "description": "Access错误"
+          }
+        }
+      }
+    },
+    "/regin/": {
+      "get": {
+        "tags": [
+          "/regin/"
+        ],
+        "summary": "根据access的code获取地区列表",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "type": "string",
+            "default": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "云主机地区列表获取成功"
+          }
+        }
+      }
+    },
+    "/inst/": {
+      "post": {
+        "tags": [
+          "/inst/"
+        ],
+        "summary": "获取云主机实例信息，code为Access的code",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code",
+                "region_list"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "1"
+                },
+                "region_list": {
+                  "type": "array",
+                  "example": [
+                    "cn-hangzhou"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "公有云实例详细信息查询成功"
+          }
+        }
+      }
+    },
+    "/import-inst/": {
+      "post": {
+        "tags": [
+          "/import-inst/"
+        ],
+        "summary": "导入云主机，code为Access的code",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code",
+                "ip_list"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "1"
+                },
+                "ip_list": {
+                  "type": "array",
+                  "example": [
+                    "118.31.7.172"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "共有云主机导入成功"
+          }
+        }
+      }
+    },
+    "/init-filed-type/": {
+      "get": {
+        "tags": [
+          "/init-filed-type/"
+        ],
+        "summary": "获取所有内置字段",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/init-filed-type/"
+        ],
+        "summary": "添加内置字段",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "name",
+                "code",
+                "not_null",
+                "attribute"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "example": "int"
+                },
+                "code": {
+                  "type": "string",
+                  "example": "整型"
+                },
+                "not_null": {
+                  "type": "boolean",
+                  "example": true
+                },
+                "attribute": {
+                  "type": "object",
+                  "example": {
+                    "最小值": "0",
+                    "最大值": "200",
+                    "company": "",
+                    "必填": true,
+                    "默认值": "0"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "内置字段添加成功"
+          },
+          "422": {
+            "description": "内置字已存在"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "/init-filed-type/"
+        ],
+        "summary": "更新内置字段",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "单行文本"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "str"
+                },
+                "attribute": {
+                  "type": "object",
+                  "example": {
+                    "文本最大长度": "300"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "内置字段添加成功"
+          },
+          "422": {
+            "description": "内置字已存在"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "/init-filed-type/"
+        ],
+        "summary": "删除内置字段",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "单行文本"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "内置字段删除成功"
+          },
+          "422": {
+            "description": "要删除的内置字段不存在"
+          }
+        }
+      }
+    },
+    "/model-group/": {
+      "get": {
+        "tags": [
+          "/model-group/"
+        ],
+        "summary": "获取已创建的模型组信息",
+        "parameters": [
+          {
+            "name": "model_type",
+            "in": "query",
+            "type": "string",
+            "description": "不输入则查询所有模型组相关信息",
+            "default": "zy"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询模型组信息成功"
+          },
+          "404": {
+            "description": "获取失败"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/model-group/"
+        ],
+        "summary": "创建模型组",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "description": "模型组相关信息",
+            "schema": {
+              "required": [
+                "code",
+                "name",
+                "model_type",
+                "built_in"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host_admin"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "主机管理"
+                },
+                "model_type": {
+                  "type": "string",
+                  "example": "zy"
+                },
+                "built_in": {
+                  "type": "boolean",
+                  "example": true
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "创建成功"
+          },
+          "422": {
+            "description": "信息已存在，创建失败"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "/model-group/"
+        ],
+        "summary": "更新用户组信息",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "description": "模型组相关信息",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host_admin"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "主机管理"
+                },
+                "model_type": {
+                  "type": "string",
+                  "example": "zy"
+                },
+                "built_in": {
+                  "type": "boolean",
+                  "example": true
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息更新成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "/model-group/"
+        ],
+        "summary": "删除相关模型组",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "description": "模型组相关信息",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host_admin"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息删除成功"
+          },
+          "422": {
+            "description": "分类下有内容，禁止删除/没有找到相关信息"
+          }
+        }
+      }
+    },
+    "/model/": {
+      "get": {
+        "tags": [
+          "/model/"
+        ],
+        "summary": "根据模型类型获取模型相关信息",
+        "parameters": [
+          {
+            "name": "model_type",
+            "in": "query",
+            "type": "string",
+            "description": "不输入则查询所有模型相关信息",
+            "default": "zy"
+          },
+          {
+            "name": "model_code",
+            "in": "query",
+            "type": "string",
+            "default": "wmy_host"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息信息获取成功"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/model/"
+        ],
+        "summary": "创建模型",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "description": "创建模型需要填写的信息",
+            "schema": {
+              "required": [
+                "code",
+                "name",
+                "model_group",
+                "model_type"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "主机"
+                },
+                "model_group": {
+                  "type": "string",
+                  "example": "wmy_host_admin"
+                },
+                "model_type": {
+                  "type": "string",
+                  "example": "zy"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息创建成功"
+          },
+          "422": {
+            "description": "信息已存在，创建失败"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "/model/"
+        ],
+        "summary": "更新模型信息",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "description": "更新相关模型信息",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host"
+                },
+                "description": {
+                  "type": "string",
+                  "example": "存放私有云主机实例"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息更新成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "/model/"
+        ],
+        "summary": "删除模型",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "description": "删除模型需要填写的信息",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "422": {
+            "description": "分类下有实例内容，禁止删除/没有找到相关信息"
+          }
+        }
+      }
+    },
+    "/field-group/": {
+      "get": {
+        "tags": [
+          "/field-group/"
+        ],
+        "summary": "根据模型code获取当前模型有哪些字段组",
+        "parameters": [
+          {
+            "name": "model_code",
+            "in": "query",
+            "type": "string",
+            "default": "wmy_host",
+            "description": "输入要查询的模型code"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息获取成功"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/field-group/"
+        ],
+        "summary": "添加字段组",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code",
+                "name",
+                "index",
+                "is_fold",
+                "is_deletable",
+                "model_code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host_default"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "default"
+                },
+                "index": {
+                  "type": "integer",
+                  "example": "1"
+                },
+                "is_fold": {
+                  "type": "boolean",
+                  "example": "false,"
+                },
+                "is_deletable": {
+                  "type": "boolean",
+                  "example": "true,"
+                },
+                "model_code": {
+                  "type": "string",
+                  "example": "wmy_host"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息创建成功"
+          },
+          "422": {
+            "description": "相关信息已存在"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "/field-group/"
+        ],
+        "summary": "更新字段组",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host_default"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "默认分组"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息更新成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "/field-group/"
+        ],
+        "summary": "删除字段组",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host_default"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息删除成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      }
+    },
+    "/field/": {
+      "get": {
+        "tags": [
+          "/field/"
+        ],
+        "summary": "根据模型code或者字段组code获取字段",
+        "parameters": [
+          {
+            "name": "field_group_code",
+            "in": "query",
+            "type": "string",
+            "description": "根据字段组code查询"
+          },
+          {
+            "name": "model_code",
+            "in": "query",
+            "type": "string",
+            "description": "根据模型code查询"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息信息获取成功"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/field/"
+        ],
+        "summary": "创建字段",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code",
+                "name",
+                "index",
+                "not_null",
+                "model_code",
+                "attribute",
+                "type_name",
+                "field_group_code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host_innerip"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "内网IP"
+                },
+                "index": {
+                  "type": "integer",
+                  "example": "1"
+                },
+                "not_null": {
+                  "type": "boolean",
+                  "example": "true"
+                },
+                "model_code": {
+                  "type": "string",
+                  "example": "wmy_host"
+                },
+                "attribute": {
+                  "type": "object",
+                  "example": {
+                    "默认值": "",
+                    "文本最小长度": "0",
+                    "文本最大长度": "200",
+                    "校验规则": {
+                      "IP": "((2(5[0-5]|[0-4]\\\\d))|[0-1]?\\\\d{1,2})(\\\\.((2(5[0-5]|[0-4]\\\\d))|[0-1]?\\\\d{1,2})){3}"
+                    }
+                  }
+                },
+                "type_name": {
+                  "type": "string",
+                  "example": "单行文本"
+                },
+                "field_group_code": {
+                  "type": "string",
+                  "example": "wmy_host_default"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息信息获取成功"
+          },
+          "422": {
+            "description": "信息已存在，创建失败"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "/field/"
+        ],
+        "summary": "更新相关字段配置",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host_innerip"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "外网IP"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息更新成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "/field/"
+        ],
+        "summary": "删除相关字段",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host_innerip"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息删除成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      }
+    },
+    "/import/": {
+      "get": {
+        "tags": [
+          "/import/"
+        ],
+        "summary": "根据模型code获取录入内容",
+        "parameters": [
+          {
+            "name": "model_code",
+            "in": "query",
+            "type": "string",
+            "description": "输入模型code，查询该模型下的实例信息",
+            "default": "wmy_host"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息信息获取成功"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/import/"
+        ],
+        "summary": "逐条录入内容",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "model_code",
+                "data",
+                "pk_name",
+                "pk_value"
+              ],
+              "properties": {
+                "model_code": {
+                  "type": "string",
+                  "example": "wmy_host"
+                },
+                "data": {
+                  "type": "object",
+                  "example": {
+                    "wmy_host_innerip": "127.0.0.1",
+                    "wmy_isp_name": "电信"
+                  }
+                },
+                "pk_name": {
+                  "type": "string",
+                  "example": "wmy_host_innerip"
+                },
+                "pk_value": {
+                  "type": "string",
+                  "example": "127.0.0.1"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息创建成功"
+          },
+          "422": {
+            "description": "信息已存在，创建失败/没有找到相关父组信息"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "/import/"
+        ],
+        "summary": "更新已录入内容",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "pk_name",
+                "data"
+              ],
+              "properties": {
+                "pk_name": {
+                  "type": "string",
+                  "example": "wmy_host_innerip"
+                },
+                "data": {
+                  "type": "object",
+                  "example": {
+                    "wmy_host_innerip": "127.0.0.1",
+                    "wmy_isp_name": "网通"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息更新成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "/import/"
+        ],
+        "summary": "删除某条已录入信息则输入code(优先判断)/批量删除已录入信息则输入code_list",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code",
+                "code_list"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": 1
+                },
+                "code_list": {
+                  "type": "array",
+                  "example": [
+                    "1",
+                    "2",
+                    "3"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息删除成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      }
+    },
+    "/csv/": {
+      "get": {
+        "tags": [
+          "/csv/"
+        ],
+        "summary": "批量导入时获取csv文件",
+        "parameters": [
+          {
+            "name": "model_code",
+            "in": "query",
+            "type": "string",
+            "description": "输入模型code",
+            "default": "wmy_host"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "开始下载"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/csv/"
+        ],
+        "summary": "通过csv文件批量录入数据",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "model_code",
+            "in": "formData",
+            "type": "string",
+            "description": "模型code"
+          },
+          {
+            "name": "filename",
+            "in": "formData",
+            "type": "file",
+            "description": "csv文件"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息创建成功"
+          },
+          "422": {
+            "description": "没有接收到csv文件/不是csv文件"
+          }
+        }
+      }
+    },
+    "/label/": {
+      "get": {
+        "tags": [
+          "/label/"
+        ],
+        "summary": "获取标签",
+        "description": "如果传入code则根据code获取",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "type": "string",
+            "description": "输入标签code获取相应标签信息",
+            "default": "belong"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息获取成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/label/"
+        ],
+        "summary": "添加标签",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code",
+                "name",
+                "relationship_type",
+                "to_target_label",
+                "to_source_label"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "belong"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "属于"
+                },
+                "relationship_type": {
+                  "type": "integer",
+                  "example": "1"
+                },
+                "to_target_label": {
+                  "type": "string",
+                  "example": "上联"
+                },
+                "to_source_label": {
+                  "type": "string",
+                  "example": "下联"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相应信息创建成功"
+          },
+          "422": {
+            "description": "记录已存在/必须输入相关信息"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "/label/"
+        ],
+        "summary": "更新标签信息",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "belong"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息更新成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "/label/"
+        ],
+        "summary": "删除相应标签",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "belong"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息删除成功"
+          },
+          "422": {
+            "description": "没有找到要删除的信息/必须输入相关信息"
+          }
+        }
+      }
+    },
+    "/model-rel/": {
+      "get": {
+        "tags": [
+          "/model-rel/仅支持从属关系"
+        ],
+        "summary": "查询模型所有的子模型接口",
+        "description": "查询某个模型有和其他模型之间的关系",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "relationship_type",
+            "in": "query",
+            "type": "string",
+            "default": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息获取成功"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/model-rel/仅支持从属关系"
+        ],
+        "summary": "创建模型关系接口",
+        "description": "用于创建模型与模型之间的关系",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "relationship_type",
+                "code1",
+                "code2",
+                "id",
+                "name",
+                "parent_describe"
+              ],
+              "properties": {
+                "relationship_type": {
+                  "type": "string",
+                  "example": "1"
+                },
+                "code1": {
+                  "type": "string",
+                  "example": "wmy_host"
+                },
+                "code2": {
+                  "type": "string",
+                  "example": "wmy_host_home"
+                },
+                "id": {
+                  "type": "string",
+                  "example": "subordinate_host"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "所属主机"
+                },
+                "parent_describe": {
+                  "type": "string",
+                  "example": "一个简单的说明"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "模型/实例关系添加成功"
+          },
+          "422": {
+            "description": "没有找到相关信息/记录已存在"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "/model-rel/仅支持从属关系"
+        ],
+        "summary": "更新模型关系信息",
+        "description": "仅支持更改模型的标签信息",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "relationship_type",
+                "code1",
+                "code2",
+                "field_code",
+                "name",
+                "parent_describe"
+              ],
+              "properties": {
+                "relationship_type": {
+                  "type": "string",
+                  "example": "1"
+                },
+                "code1": {
+                  "type": "string",
+                  "example": "wmy_host"
+                },
+                "code2": {
+                  "type": "string",
+                  "example": "wmy_host_home"
+                },
+                "field_code": {
+                  "type": "string",
+                  "example": "wmy_host_subordinate_host"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "新的所属关系名称"
+                },
+                "parent_describe": {
+                  "type": "string",
+                  "example": "新的关系说明"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息更新成功"
+          },
+          "422": {
+            "description": "没有找到相关信息/没有相应的关系"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "/model-rel/仅支持从属关系"
+        ],
+        "summary": "删除模型关系信息",
+        "description": "删除相应的模型关系，如果已经模型之间已有实例关联，则禁止删除",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "relationship_type",
+                "code",
+                "field_code"
+              ],
+              "properties": {
+                "relationship_type": {
+                  "type": "string",
+                  "example": "1"
+                },
+                "code": {
+                  "type": "string",
+                  "example": "wmy_host"
+                },
+                "field_code": {
+                  "type": "string",
+                  "example": "wmy_host_subordinate_host"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息删除成功"
+          },
+          "422": {
+            "description": "没有找到相关信息/没有相应的关系/分类下有内容，禁止删除"
+          }
+        }
+      }
+    },
+    "/inst-rel/": {
+      "get": {
+        "tags": [
+          "/inst-rel/"
+        ],
+        "summary": "查询某个模型的实例可关联(现在仅支持从属关系)",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "type": "string",
+            "description": "为要查询的模型code，查询这个模型可关联的实例信息"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息获取成功"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/inst-rel/"
+        ],
+        "summary": "创建实例关系接口(现在仅支持从属关系)",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code1",
+                "code2",
+                "relationship_type"
+              ],
+              "properties": {
+                "code1": {
+                  "type": "string",
+                  "example": 1
+                },
+                "code2": {
+                  "type": "string",
+                  "example": 2
+                },
+                "relationship_type": {
+                  "type": "string",
+                  "example": 1
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "模型/实例关系添加成功"
+          },
+          "422": {
+            "description": "没有找到相关信息/记录已存在"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "/inst-rel/"
+        ],
+        "summary": "更新实例之间关系信息(现在仅支持从属关系)",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code1",
+                "code2",
+                "relationship_type"
+              ],
+              "properties": {
+                "code1": {
+                  "type": "string",
+                  "example": 1
+                },
+                "code2": {
+                  "type": "string",
+                  "example": 3
+                },
+                "relationship_type": {
+                  "type": "string",
+                  "example": 1
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息更新成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "/inst-rel/"
+        ],
+        "summary": "删除当前实例所关联的父模型实例关系(现在仅支持从属关系)",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code",
+                "relationship_type"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "1"
+                },
+                "relationship_type": {
+                  "type": "string",
+                  "example": "1"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息删除成功"
+          },
+          "422": {
+            "description": "没有找到相关信息/没有相应的关系"
+          }
+        }
+      }
+    },
+    "/host-dis/": {
+      "get": {
+        "tags": [
+          "/host-dis/"
+        ],
+        "summary": "查询当前主机已被分配的情况",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "type": "string",
+            "description": "输入主机code"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息获取成功"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/host-dis/"
+        ],
+        "summary": "将主机分配某个业务下，当code_list存在时不需要code1，批量分配至某个业务下",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code1",
+                "code2",
+                "code_list"
+              ],
+              "properties": {
+                "code1": {
+                  "type": "string",
+                  "example": 1
+                },
+                "code2": {
+                  "type": "string",
+                  "example": 2
+                },
+                "code_list": {
+                  "type": "array",
+                  "example": [
+                    "3",
+                    "4",
+                    "5"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息创建成功"
+          },
+          "422": {
+            "description": "没有找到相关信息/记录已经存在"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "/host-dis/"
+        ],
+        "summary": "更新主机分配信息情况",
+        "description": "其实就是将已被分配的主机，分配到其他的业务下",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code1",
+                "code2"
+              ],
+              "properties": {
+                "code1": {
+                  "type": "string",
+                  "example": "1"
+                },
+                "code2": {
+                  "type": "string",
+                  "example": "2"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息更新成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "/host-dis/"
+        ],
+        "summary": "从当前业务中移除某个主机",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "1"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息删除成功"
+          },
+          "422": {
+            "description": "没有找到相关信息"
+          }
+        }
+      }
+    },
+    "/inst-tree/": {
+      "get": {
+        "tags": [
+          "/inst-tree/"
+        ],
+        "summary": "根据实例code，查询实例树",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息查询成功"
+          },
+          "422": {
+            "description": "没有找到相关信息/必须输入相关信息"
+          }
+        }
+      }
+    },
+    "/host-tran/": {
+      "get": {
+        "tags": [
+          "/host-tran/"
+        ],
+        "summary": "获取当前服务下所有的主机列表",
+        "description": "如果获取资源池，由于资源池是每个业务下都有，所以查询资源池的时候需要额外输入业务code",
+        "parameters": [
+          {
+            "name": "code1",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "code2",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息信息获取成功"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "/host-tran/"
+        ],
+        "summary": "将主机转移到某个业务下，如果code_list则为批量转移",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "code1",
+                "code2",
+                "code_list"
+              ],
+              "properties": {
+                "code1": {
+                  "type": "string",
+                  "example": "1"
+                },
+                "code2": {
+                  "type": "string",
+                  "example": "4"
+                },
+                "code_list": {
+                  "type": "array",
+                  "example": [
+                    "1",
+                    "2",
+                    "3"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "相关信息创建成功"
+          }
+        }
+      }
+    },
+    "/admin-delete-data/": {
+      "delete": {
+        "tags": [
+          "/admin-delete-data/"
+        ],
+        "summary": "仅用于测试环境，删除测试环境中的数据库数据,非特殊情况，禁止使用该API",
+        "description": "数据库重构后，之前数据与ORM产生冲突时使用",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "schema": {
+              "required": [
+                "password"
+              ],
+              "properties": {
+                "password": {
+                  "type": "string",
+                  "example": ""
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "准备跑路吧"
+          },
+          "422": {
+            "description": "密码错误"
+          }
+        }
+      }
+    }
+  }
+}

@@ -22,6 +22,9 @@
     webHigh: '/t/esight/api/v1/cmdb/vscan/web/high/',
     webSync: '/t/esight/api/v1/cmdb/vscan/web/sync/',
     webCompare: '/t/esight/api/v1/cmdb/vscan/web/compare/',
+    vulnSync: '/t/esight/api/v1/cmdb/vscan/vuln/sync/',
+    vulnsExport: '/t/esight/api/v1/cmdb/vscan/vulns/export/',
+    webVulnsExport: '/t/esight/api/v1/cmdb/vscan/web/vulns/export/',
   };
 
   function fetchJson(url, opts) {
@@ -33,6 +36,16 @@
   }
 
   var SEV_TEXT = { '0': '信息', '1': '低', '2': '中', '3': '高', '4': '严重' };
+  // 风险等级 → 配色（按风险语义：高=红/严重=深红、低=绿、中=橙、信息=灰）。
+  // 2026-08-31：所有需要展示"风险等级颜色"的地方必须从这张表取色，禁止散落硬编码。
+  // 与 vscan-index.html 的 .vs-pill.{info,low,mid,high,crit} 配色保持一致。
+  var SEV_COLORS = {
+    '信息': '#8c8c8c',
+    '低':   '#52c41a',
+    '中':   '#faad14',
+    '高':   '#ff4d4f',
+    '严重': '#cf1322',
+  };
   var SEV_CLS = { '0': 'info', '1': 'low', '2': 'mid', '3': 'high', '4': 'crit' };
   // WEB 漏洞等级（scanlogsystem 与系统漏洞相反！）：0=高/1=中/2=低/3=信息
   var SEV_WEB_TEXT = { '0': '高', '1': '中', '2': '低', '3': '信息' };
@@ -82,6 +95,13 @@
         webSyncTotalTasks: 0,
         webCheckDone: false,     // 懒检测已完成
         webSyncErr: '',
+        // 系统漏洞视图（落库 + 懒检测同步，镜像 WEB）
+        vulnCheckDone: false,
+        vulnSyncBuilding: false, // 后台同步中
+        vulnSyncMsg: '',
+        vulnSyncDoneTasks: 0,
+        vulnSyncTotalTasks: 0,
+        vulnSyncErr: '',
         // 报告对比
         showCompare: false,
         cmpA: '',                // 对比任务A（最新）
@@ -153,9 +173,9 @@
           setTimeout(function () { self._tryInitCharts(); }, 200);
           setTimeout(function () { self._tryInitCharts(); }, 600);
         } else if (v === 'vulns') {
-          if (self.dataPool.length === 0) self.searchVulns();
+          if (self.dataPool.length === 0) self.loadVulnView();
         } else if (v === 'assets') {
-          if (self.assetList.length === 0) self.loadAssets();
+          if (self.assetList.length === 0) self.loadVulnView();
         } else if (v === 'web') {
           self.loadWebView();
         }
@@ -164,11 +184,15 @@
     methods: {
       sevText: function (s) { return SEV_TEXT[String(s)] || s || '-'; },
       sevCls: function (s) { return SEV_CLS[String(s)] || ''; },
-      loadAll: function () {
+      // force=true 时带 ?refresh=1 强制回源（后端 1 天缓存的手动刷新入口）
+      loadAll: function (force) {
+        force = force === true;
         var self = this;
         this.loading = true;
         this.error = '';
-        fetchJson(API.stats).then(function (j) {
+        var statsUrl = force ? API.stats + '?refresh=1' : API.stats;
+        var webStatsUrl = force ? API.webStats + '?refresh=1' : API.webStats;
+        fetchJson(statsUrl).then(function (j) {
           self.loading = false;
           if (j.code === 200) {
             self.stats = j.data || self.stats;
@@ -180,14 +204,14 @@
           self.error = '请求失败: ' + e;
         });
         // WEB 统计（任务维度，轻量）
-        fetchJson(API.webStats).then(function (j) {
+        fetchJson(webStatsUrl).then(function (j) {
           if (j.code === 200) self.webStats = j.data || self.webStats;
         }).catch(function () {});
       },
       switchView: function (v) {
         this.view = v;
-        if (v === 'vulns' && this.dataPool.length === 0) this.searchVulns();
-        if (v === 'assets' && this.assetList.length === 0) this.loadAssets();
+        if (v === 'vulns' && this.dataPool.length === 0) this.loadVulnView();
+        if (v === 'assets' && this.assetList.length === 0) this.loadVulnView();
         if (v === 'web') this.loadWebView();
       },
       // ── WEB 漏洞视图（落库 + 懒检测同步：任务下拉 + 漏洞表）──
@@ -266,6 +290,86 @@
         });
       },
       // 查 DB 任务列表
+      // ── 系统漏洞视图（落库 + 懒检测同步，镜像 WEB 漏洞）──
+      // 懒检测：DB 有新鲜数据 → 直接读 DB（秒开）；否则触发后台同步 + 轮询
+      loadVulnView: function (force) {
+        force = force === true;
+        var self = this;
+        if (this.vulnSyncBuilding) return;
+        var doLoad = function () {
+          // 根据当前视图加载对应数据（DB 秒开）
+          if (self.view === 'assets') {
+            if (self.assetList.length === 0) self.loadAssets();
+          } else {
+            if (self.dataPool.length === 0) self.searchVulns();
+          }
+        };
+        if (force) { self.vulnSyncNow(doLoad); return; }
+        fetchJson(API.vulnSync + '?action=check').then(function (j) {
+          if (j.code !== 200) { self.error = j.message || '同步检查失败'; doLoad(); return; }
+          var d = j.data || {};
+          if (d.fresh) {
+            self.vulnCheckDone = true;
+            doLoad();
+          } else {
+            self.vulnSyncNow(doLoad);
+          }
+        }).catch(function (e) {
+          self.error = '同步检查请求失败: ' + e;
+          doLoad();
+        });
+      },
+      // 手动/自动触发同步
+      vulnSyncNow: function (cb) {
+        cb = cb || function () {};
+        var self = this;
+        if (this.vulnSyncBuilding) return;
+        this.vulnSyncBuilding = true;
+        this.vulnSyncErr = '';
+        fetchJson(API.vulnSync + '?action=trigger').then(function (j) {
+          if (j.code !== 200) {
+            self.vulnSyncBuilding = false;
+            self.vulnSyncErr = j.message || '同步触发失败';
+            cb();
+            return;
+          }
+          var d = j.data || {};
+          if (d.fresh) {
+            self.vulnSyncBuilding = false;
+            self.vulnCheckDone = true;
+            cb();
+          } else {
+            self._pollVulnSync(cb);
+          }
+        }).catch(function (e) {
+          self.vulnSyncBuilding = false;
+          self.vulnSyncErr = '同步请求失败: ' + e;
+          cb();
+        });
+      },
+      _pollVulnSync: function (cb) {
+        cb = cb || function () {};
+        var self = this;
+        fetchJson(API.vulnSync + '?action=status').then(function (j) {
+          if (j.code !== 200) { self.vulnSyncErr = j.message || '同步状态失败'; cb(); return; }
+          var d = j.data || {};
+          if (d.building) {
+            self.vulnSyncMsg = d.msg || '同步中';
+            self.vulnSyncDoneTasks = d.done_tasks || 0;
+            self.vulnSyncTotalTasks = d.total_tasks || 0;
+            if (d.vuln_total) self.vulnSyncMsg = (d.msg || '同步中') + '（' + d.vuln_total + ' 条）';
+            setTimeout(function () { self._pollVulnSync(cb); }, 2000);
+          } else {
+            self.vulnSyncBuilding = false;
+            self.vulnCheckDone = true;
+            cb();
+          }
+        }).catch(function (e) {
+          self.vulnSyncBuilding = false;
+          self.vulnSyncErr = '同步状态请求失败: ' + e;
+          cb();
+        });
+      },
       loadWebCards: function () {
         var self = this;
         if (this.webCardsLoading) return;
@@ -389,6 +493,8 @@
         });
       },
       // ── 漏洞列表（前端过滤 + 分页池）──
+      // 2026-08-26：数据来自本地 DB（秒开），不再带 ?refresh=1；
+      // 强制重新拉上游请用 loadVulnView(true)（同步数据按钮）
       searchVulns: function () {
         // 重置：清池，按当前 f 重新拉
         this.dataPool = [];
@@ -406,12 +512,21 @@
         f2.severity = f.severity === '' || f.severity === undefined ? '' : String(f.severity);
         this._filter = f2;
         // 在 dataPool 上过滤
-        this.filteredVulns = this.dataPool.filter(function (v) { return matchFilter(v, f2); });
+        var list = this.dataPool.filter(function (v) { return matchFilter(v, f2); });
+        // 2026-08-31：风险等级从高到低排序（sev: '4'=严重 '3'=高 '2'=中 '1'=低 '0'=信息）
+        // 同级按名称稳定排，保证「全部风险等级」视图下高危项置顶、列表有序不抖动。
+        list.sort(function (a, b) {
+          var sa = Number(a.sev), sb = Number(b.sev);
+          if (sb !== sa) return sb - sa;            // 高 → 低
+          return (a.name || '').localeCompare(b.name || '', 'zh');
+        });
+        this.filteredVulns = list;
       },
-      fetchVulnsIntoPool: function () {
+      fetchVulnsIntoPool: function (force) {
         var self = this;
         if (this.vulnLoading || this.vulnExhausted) return;
         this.vulnLoading = true;
+        // DB 读取（秒开），无需 ?refresh=1
         var q = '?limit=500&offset=' + this.vulnOffset;
         fetchJson(API.vulns + q).then(function (j) {
           self.vulnLoading = false;
@@ -437,7 +552,7 @@
           self.applyFilter();
           // 2026-08-21：还有剩余 → 自动继续拉（进入列表即拉满全量，筛选在全量上做）
           if (!self.vulnExhausted) {
-            self.fetchVulnsIntoPool();
+            self.fetchVulnsIntoPool(force);
           }
         }).catch(function (e) {
           self.vulnLoading = false;
@@ -448,9 +563,25 @@
         // 池里过滤后条数 < 池总量 → 池可能不够，再拉更多
         this.fetchVulnsIntoPool();
       },
+      // 2026-08-28：导出系统漏洞（CSV，所见即所导：把当前筛选 f 原样传给后端）
+      exportVulns: function () {
+        var f = this.f;
+        var q = 'ip=' + encodeURIComponent(f.ip || '') +
+                '&name=' + encodeURIComponent(f.name || '') +
+                '&severity=' + encodeURIComponent(f.severity || '') +
+                '&asset_name=' + encodeURIComponent(f.asset_name || '') +
+                '&port=' + encodeURIComponent(f.port || '');
+        window.open(API.vulnsExport + '?' + q, '_blank');
+      },
+      // 2026-08-28：导出 WEB 漏洞（当前选中任务）
+      exportWebVulns: function () {
+        if (!this.webCurrentTaskid) return;
+        window.open(API.webVulnsExport + '?taskid=' + encodeURIComponent(this.webCurrentTaskid), '_blank');
+      },
       // ── 资产视图 ──
       // ⚠️ 2026-08-24 v15：拉【全量】漏洞分页聚合资产（原来只拉第一页 500 条 → 资产不全、
       // 且后端忽略 ip 参数导致搜索失效）。搜索改前端过滤 filteredAssets。
+      // 2026-08-26：数据来自本地 DB（秒开），无需 ?refresh=1。
       loadAssets: function () {
         var self = this;
         if (this.loading) return;
@@ -460,12 +591,13 @@
         var start = 0;
         var total = null;
         (function fetchPage() {
-          fetchJson(API.vulns + '?limit=500&offset=' + start).then(function (j) {
+          var q = '?limit=500&offset=' + start;
+          fetchJson(API.vulns + q).then(function (j) {
             if (j.code !== 200) { self.loading = false; self.error = j.message || '资产加载失败'; return; }
             var d = j.data || {};
             if (total === null) total = d.total || 0;
             all = all.concat(d.data || []);
-            if ((d.data || []).length >= 500 && all.length < total && start < 4500) {
+            if ((d.data || []).length >= 500 && all.length < total) {
               start += 500;
               fetchPage();
               return;
@@ -496,13 +628,13 @@
         this.f.severity = '';
         this.f.port = '';
         this.view = 'vulns';
-        // view watch 会自动 searchVulns（若池为空），这里显式触发确保立即重新拉
-        this.searchVulns();
+        // 确保数据已就绪（DB 秒开；若未同步则触发同步）
+        this.loadVulnView();
       },
       // 2026-08-24 v15：资产搜索 = 前端过滤（computed filteredAssets 自动响应 aF.ip）
       onAssetSearch: function () {
-        // 无额外逻辑——filteredAssets 实时过滤；若资产尚未加载则加载
-        if (this.assetList.length === 0) this.loadAssets();
+        // 资产"查询"按钮 = 重新从 DB 加载全量聚合（秒开）
+        this.loadAssets();
       },
       // ── 详情 ──
       openVuln: function (v) {
@@ -544,14 +676,23 @@
         var sev = this.chartInstances.sev;
         var asset = this.chartInstances.asset;
         if (sev) {
+          // 按【风险等级名称】取色（不再依赖 sev_dist 数组顺序）：
+          // 后端 sorted() 在 3 桶（低/中/高） vs 5 桶（信息/低/中/高/严重）下顺序不同，
+          // 改用 itemStyle.color 逐项绑定，免疫错位。
+          var pieData = (this.stats.sev_dist || []).map(function (d) {
+            return {
+              name: d.severity,
+              value: d.cnt,
+              itemStyle: { color: SEV_COLORS[d.severity] || '#8c8c8c' },
+            };
+          });
           sev.setOption({
-            color: ['#8c8c8c', '#52c41a', '#faad14', '#ff4d4f', '#cf1322'],
             tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
             legend: { bottom: 0, textStyle: { fontSize: 12 } },
             series: [{
               type: 'pie', radius: ['38%', '62%'], center: ['50%', '44%'],
               label: { show: false },
-              data: (this.stats.sev_dist || []).map(function (d) { return { name: d.severity, value: d.cnt }; }),
+              data: pieData,
             }],
           });
         }

@@ -27,12 +27,15 @@ from .api.host_monitor_api import (
     ZabbixMetricsView, ZabbixRealtimeView, ZabbixHostStatusView,
     ZabbixAlarmsView, ZabbixPingView, HostMonitorConfigView,
 )
-from .api.waf_views import WafLogsView, WafStatsView
+from .api.waf_views import WafLogsView, WafStatsView, WafExportView
+from .api.security_alert_views import AlertRuleView, AlertScanView, AlertRecordListView
+from .api.security_report_views import SecurityReportListView, SecurityReportDetailView, SecurityReportCurrentView
 from .api.vscan_views import (
     VScanStatsView, VScanTasksView, VScanVulnsView, VScanVulnDetailView,
+    VScanVulnSyncView, VScanVulnExportView,
     VScanWebStatsView, VScanWebSitesView, VScanWebVulnsView, VScanWebVulnDetailView,
     VScanWebCardsView, VScanWebFullView, VScanWebHighView,
-    VScanWebSyncView, VScanWebCompareView,
+    VScanWebSyncView, VScanWebCompareView, VScanWebVulnExportView,
 )
 from .api.platform_views import (
     NetworkEquipmentListProxy, NetworkFromCMDBProxy,
@@ -96,22 +99,34 @@ urlpatterns = [
     path('host-monitor/zabbix/ping/', ZabbixPingView.as_view()),
     # ── v6 网络安全设备监控：WAF 攻击日志（2026-08-17）──
     path('waf/logs/', WafLogsView.as_view()),
+    path('waf/logs/export/', WafExportView.as_view()),
     path('waf/stats/', WafStatsView.as_view()),
     # ── vScan 漏洞扫描（2026-08-21，实时透传）──
     path('vscan/stats/', VScanStatsView.as_view()),
     path('vscan/tasks/', VScanTasksView.as_view()),
     path('vscan/vulns/', VScanVulnsView.as_view()),
     path('vscan/vulns/detail/', VScanVulnDetailView.as_view()),
+    path('vscan/vulns/export/', VScanVulnExportView.as_view()),
+    path('vscan/vuln/sync/', VScanVulnSyncView.as_view()),
     # ── vScan WEB 漏洞（2026-08-21，scanlogsystem + report 账号）──
     path('vscan/web/stats/', VScanWebStatsView.as_view()),
     path('vscan/web/sites/', VScanWebSitesView.as_view()),
     path('vscan/web/vulns/', VScanWebVulnsView.as_view()),
+    path('vscan/web/vulns/export/', VScanWebVulnExportView.as_view()),
     path('vscan/web/vulns/detail/', VScanWebVulnDetailView.as_view()),
     path('vscan/web/cards/', VScanWebCardsView.as_view()),
     path('vscan/web/full/', VScanWebFullView.as_view()),
     path('vscan/web/high/', VScanWebHighView.as_view()),
     path('vscan/web/sync/', VScanWebSyncView.as_view()),
     path('vscan/web/compare/', VScanWebCompareView.as_view()),
+    # ── v7 安全告警（2026-08-28，WAF/FW 高危攻击实时监测 + 钉钉/邮件推送）──
+    path('security/alert/rule/', AlertRuleView.as_view()),
+    path('security/alert/scan/', AlertScanView.as_view()),
+    path('security/alert/records/', AlertRecordListView.as_view()),
+    # ── v8 安全报表（日/周/月报，2026-09-03）──
+    path('security/report/', SecurityReportListView.as_view()),
+    path('security/report/current/', SecurityReportCurrentView.as_view()),
+    path('security/report/<str:period_type>/<str:period_key>/', SecurityReportDetailView.as_view()),
     # ── v4 直接搬运 control 前端 dist（baseURL = /t/esight/api/v1/control/v0_1/...）──
     # 控制 dist 会请求 ~200 个 endpoint，eSight 实现核心网络设备 + 概览 dashboard，
     # 其他 endpoint 由 control_api_router 兜底返回空数据避免前端崩

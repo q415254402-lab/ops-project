@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>安全报表 - eSight</title>
+<style>
+  * { box-sizing: border-box; }
+  body { background: #f0f2f5; margin: 0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; color: rgba(0,0,0,.85); font-size: 14px; }
+  .sa-header { background: #fff; padding: 16px 24px; box-shadow: 0 1px 4px rgba(0,21,41,.08); margin-bottom: 16px; }
+  .sa-title { font-size: 18px; font-weight: 500; margin: 0 0 4px; }
+  .sa-sub { color: rgba(0,0,0,.45); font-size: 13px; }
+  .sa-body { padding: 0 24px 24px; }
+
+  /* Tabs */
+  .sr-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .sr-tab { padding: 6px 22px; background: #fff; border: 1px solid #d9d9d9; border-radius: 4px; cursor: pointer; font-size: 14px; color: rgba(0,0,0,.65); transition: all .2s; }
+  .sr-tab:hover { color: #1890ff; border-color: #91d5ff; }
+  .sr-tab.active { color: #fff; background: #1890ff; border-color: #1890ff; }
+
+  .sr-layout { display: flex; gap: 16px; align-items: flex-start; }
+  /* 左侧历史列表（14+ 项会超视口 → 限高滚动） */
+  .sr-side { width: 280px; flex-shrink: 0; max-height: calc(100vh - 210px); overflow-y: auto; padding-right: 4px; }
+  .sr-side::-webkit-scrollbar { width: 6px; }
+  .sr-side::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 3px; }
+  .sr-side::-webkit-scrollbar-track { background: transparent; }
+  .sr-side-title { font-size: 13px; color: rgba(0,0,0,.45); margin: 4px 4px 10px; }
+  .sr-hist { background: #fff; border: 1px solid #f0f0f0; border-radius: 4px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; transition: all .2s; border-left: 3px solid transparent; }
+  .sr-hist:hover { box-shadow: 0 2px 8px rgba(24,144,255,.12); border-left-color: #91d5ff; }
+  .sr-hist.active { border-color: #1890ff; border-left-color: #1890ff; background: #e6f7ff; }
+  .sr-hist-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .sr-hist-sub { font-size: 12px; color: rgba(0,0,0,.45); }
+  .sr-hist-meta { font-size: 11px; color: rgba(0,0,0,.25); margin-top: 4px; }
+  .sr-empty { padding: 24px; text-align: center; color: rgba(0,0,0,.45); font-size: 13px; }
+  .sr-more-btn { text-align: center; font-size: 12px; color: #1890ff; cursor: pointer; padding: 8px 0; }
+  .sr-more-btn:hover { text-decoration: underline; }
+
+  /* 右侧主体 */
+  .sr-main { flex: 1; min-width: 0; }
+  .sr-view-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .sr-badge { font-size: 12px; padding: 2px 10px; border-radius: 10px; }
+  .sr-badge.live { background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; }
+  .sr-badge.arch { background: #f9f0ff; color: #722ed1; border: 1px solid #d3adf7; }
+  .sr-view-title { font-size: 14px; color: rgba(0,0,0,.65); }
+
+  /* 走势图 */
+  .sr-trend { background: #fff; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,21,41,.08); padding: 14px 18px 8px; margin-bottom: 16px; }
+  .sr-trend-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .sr-trend-title { font-size: 14px; font-weight: 500; }
+  .sr-trend-legend { display: flex; gap: 16px; font-size: 12px; color: rgba(0,0,0,.45); }
+  .sr-trend-legend .lg { display: flex; align-items: center; gap: 5px; }
+  .sr-trend-legend i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+  .sr-trend-svg { width: 100%; height: auto; display: block; }
+
+  .sr-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .sr-card { background: #fff; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,21,41,.08); display: flex; flex-direction: column; }
+  .sr-card-head { padding: 12px 18px; border-bottom: 1px solid #f0f0f0; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: space-between; border-left: 3px solid #1890ff; }
+  .sr-card-body { padding: 16px 18px; }
+  .sr-head-right { display: flex; align-items: center; gap: 10px; }
+  .sr-snap-tag { font-size: 11px; font-weight: 400; color: rgba(0,0,0,.45); border: 1px solid #d9d9d9; border-radius: 2px; padding: 0 6px; line-height: 18px; cursor: help; }
+  .sr-more { font-size: 12px; color: #1890ff; text-decoration: none; }
+  .sr-more:hover { text-decoration: underline; }
+
+  .sr-totals { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; }
+  .sr-total { min-width: 90px; }
+  .sr-total-label { font-size: 12px; color: rgba(0,0,0,.45); margin-bottom: 4px; }
+  .sr-total-value { font-size: 24px; font-weight: 500; line-height: 1.2; display: flex; align-items: baseline; gap: 6px; }
+  .sr-delta { font-size: 12px; font-weight: 400; }
+  .sr-delta.up { color: #cf1322; }
+  .sr-delta.down { color: #389e0d; }
+  .sr-delta.flat { color: rgba(0,0,0,.45); }
+
+  .sr-sev { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .sr-sev-tag { display: inline-block; padding: 1px 8px; border-radius: 2px; font-size: 12px; line-height: 20px; border: 1px solid; }
+
+  .sr-top { border-top: 1px dashed #f0f0f0; padding-top: 10px; }
+  .sr-top-label { font-size: 12px; color: rgba(0,0,0,.45); margin-bottom: 8px; }
+  .sr-top-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; }
+  .sr-top-rank { width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; background: #f0f2f5; color: rgba(0,0,0,.45); font-size: 11px; flex-shrink: 0; }
+  .sr-top-row:nth-child(2) .sr-top-rank { background: #fff1f0; color: #cf1322; }
+  .sr-top-row:nth-child(3) .sr-top-rank { background: #fff7e6; color: #d46b08; }
+  .sr-top-row:nth-child(4) .sr-top-rank { background: #f6ffed; color: #389e0d; }
+  .sr-top-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sr-top-count { color: rgba(0,0,0,.65); font-weight: 500; }
+
+  .sr-msg { padding: 8px 12px; border-radius: 2px; margin-bottom: 12px; font-size: 13px; }
+  .sr-msg.ok { background: #f6ffed; border: 1px solid #b7eb8f; color: #389e0d; }
+  .sr-msg.err { background: #fff1f0; border: 1px solid #ffa39e; color: #cf1322; }
+  .sr-loading { padding: 40px; text-align: center; color: rgba(0,0,0,.45); }
+
+  /* 本期总结（AI 生成） */
+  .sr-summary { background: #fff; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,21,41,.08); padding: 16px 20px; margin-bottom: 16px; border-left: 3px solid #722ed1; }
+  .sr-summary-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sr-summary-title { font-size: 15px; font-weight: 500; }
+  .sr-summary-risk { font-size: 12px; padding: 2px 10px; border-radius: 10px; font-weight: 500; }
+  .sr-summary-risk.low { background: #f6ffed; color: #389e0d; border: 1px solid #b7eb8f; }
+  .sr-summary-risk.mid { background: #fff7e6; color: #d46b08; border: 1px solid #ffd591; }
+  .sr-summary-risk.high { background: #fff1f0; color: #cf1322; border: 1px solid #ffa39e; }
+  .sr-summary-risk.unknown { background: #f0f2f5; color: rgba(0,0,0,.45); border: 1px solid #d9d9d9; }
+  .sr-summary-engine { font-size: 11px; color: rgba(0,0,0,.35); margin-left: auto; }
+  .sr-summary-engine.ai { color: #722ed1; }
+  .sr-summary-engine.rule { color: rgba(0,0,0,.45); }
+  .sr-summary-body { font-size: 13.5px; line-height: 1.85; color: rgba(0,0,0,.78); white-space: pre-wrap; word-break: break-word; }
+  .sr-summary-body p { margin: 0 0 10px; }
+  .sr-summary-body p:last-child { margin-bottom: 0; }
+  .sr-summary-body .seg-label { font-weight: 500; color: rgba(0,0,0,.88); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="sa-header">
+    <h1 class="sa-title">安全报表</h1>
+    <div class="sa-sub">日报 / 周报 / 月报 · 安全态势周期汇总与环比趋势</div>
+  </div>
+
+  <div class="sa-body">
+    <div v-if="msg" :class="['sr-msg', msgCls]">{{ msg }}</div>
+
+    <!-- Tabs -->
+    <div class="sr-tabs">
+      <div v-for="t in tabs" :key="t.key" :class="['sr-tab', pt===t.key?'active':'']" @click="switchPt(t.key)">{{ t.label }}</div>
+    </div>
+
+    <div class="sr-layout">
+      <!-- 左侧历史归档（限高滚动） -->
+      <div class="sr-side">
+        <div class="sr-side-title">历史归档（{{ reports.length }}）</div>
+        <div :class="['sr-hist', !selectedKey?'active':'']" @click="showCurrent">
+          <div class="sr-hist-title">实时（当前周期）</div>
+          <div class="sr-hist-sub">{{ liveRangeText }}</div>
+        </div>
+        <div v-for="r in visibleReports" :key="r.period_key" :class="['sr-hist', selectedKey===r.period_key?'active':'']" @click="openReport(r)">
+          <div class="sr-hist-title">{{ r.title || r.period_key }}</div>
+          <div class="sr-hist-sub">{{ r.period_start.slice(0,10) }} ~ {{ r.period_end.slice(0,10) }}</div>
+          <div class="sr-hist-meta">生成于 {{ r.created_at.slice(0,16) }}</div>
+        </div>
+        <div v-if="reports.length > visibleCount" class="sr-more-btn" @click="visibleCount = visibleCount + 20">展开更多（剩余 {{ reports.length - visibleCount }}）</div>
+        <div v-if="!reports.length && !loading" class="sr-empty">暂无归档报表</div>
+        <div v-if="loading" class="sr-empty">加载中…</div>
+      </div>
+
+      <!-- 右侧主体 -->
+      <div class="sr-main">
+        <div class="sr-view-head">
+          <span class="sr-badge" :class="view && view.archived ? 'arch' : 'live'">{{ view && view.archived ? '归档' : '实时' }}</span>
+          <span class="sr-view-title">{{ viewRangeText }}</span>
+        </div>
+
+        <!-- 近 N 期走势（复用归档 summary + 实时点，零额外聚合） -->
+        <div v-if="trendGeo" class="sr-trend">
+          <div class="sr-trend-head">
+            <span class="sr-trend-title">近 {{ trendPoints.labels.length }} 期走势</span>
+            <span class="sr-trend-legend">
+              <span class="lg"><i style="background:#1890ff"></i>WAF 攻击总数</span>
+              <span class="lg"><i style="background:#13c2c2"></i>防火墙拦截总数</span>
+            </span>
+          </div>
+          <svg :viewBox="'0 0 ' + trendGeo.w + ' ' + trendGeo.h" class="sr-trend-svg" role="img"
+               :aria-label="'近 ' + trendPoints.labels.length + ' 期 WAF 攻击与防火墙拦截事件量走势'">
+            <g v-for="g in trendGeo.grid" :key="'grid' + g.y">
+              <line :x1="trendGeo.pl" :y1="g.y" :x2="trendGeo.w - 14" :y2="g.y" stroke="#f0f0f0" stroke-width="1"/>
+              <text :x="trendGeo.pl - 8" :y="g.y + 4" text-anchor="end" font-size="10" fill="rgba(0,0,0,.45)">{{ g.label }}</text>
+            </g>
+            <polyline :points="trendGeo.fwPts" fill="none" stroke="#13c2c2" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            <polyline :points="trendGeo.wafPts" fill="none" stroke="#1890ff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle v-for="d in trendGeo.dots" :key="'df' + d.i" :cx="d.x" :cy="d.yf" r="2.6" fill="#13c2c2"/>
+            <circle v-for="d in trendGeo.dots" :key="'dw' + d.i" :cx="d.x" :cy="d.yw" r="2.6" fill="#1890ff"/>
+            <text v-for="d in trendGeo.dots" :key="'dl' + d.i" :x="d.x" :y="trendGeo.h - 8"
+                  text-anchor="middle" font-size="10" fill="rgba(0,0,0,.45)">{{ d.tick }}</text>
+            <text v-if="trendGeo.last" :x="trendGeo.last.x" :y="trendGeo.last.yw - 8"
+                  text-anchor="end" font-size="11" fill="#1890ff">{{ trendGeo.last.wv }}</text>
+            <text v-if="trendGeo.last" :x="trendGeo.last.x" :y="trendGeo.last.yf + 14"
+                  text-anchor="end" font-size="11" fill="#13c2c2">{{ trendGeo.last.fv }}</text>
+          </svg>
+        </div>
+
+        <!-- 本期总结（AI 生成，周/月报走本地大模型，日报/实时走规则引擎） -->
+        <div v-if="view && view.summary && view.summary.text" class="sr-summary">
+          <div class="sr-summary-head">
+            <span class="sr-summary-title">本期总结</span>
+            <span class="sr-summary-risk" :class="riskClass(view.summary.risk_level)">{{ riskLabel(view.summary.risk_level) }}</span>
+            <span class="sr-summary-engine" :class="view.summary.engine">{{ engineLabel(view.summary) }}</span>
+          </div>
+          <div class="sr-summary-body">{{ view.summary.text }}</div>
+        </div>
+
+        <div v-if="!view" class="sr-loading">加载中…</div>
+        <div v-else class="sr-cards">
+          <div v-for="m in moduleDefs" :key="m.key" class="sr-card">
+            <div class="sr-card-head">
+              <span>{{ m.name }}</span>
+              <span class="sr-head-right">
+                <span v-if="moduleMeta(m.key).snapshot" class="sr-snap-tag" :title="moduleMeta(m.key).note">当前快照</span>
+                <a class="sr-more" :href="m.link" target="_blank">查看更多 ›</a>
+              </span>
+            </div>
+            <div class="sr-card-body">
+              <div class="sr-totals">
+                <div v-for="t in m.totals" :key="t.k" class="sr-total">
+                  <div class="sr-total-label">{{ t.label }}</div>
+                  <div class="sr-total-value">
+                    {{ fmt(moduleTotals(m.key)[t.k]) }}
+                    <span v-if="cmp(m.key, t.k)" :class="['sr-delta', cmp(m.key, t.k).dir]"><span
+                      v-if="cmp(m.key, t.k).dir !== 'flat'">{{ cmp(m.key, t.k).dir === 'up' ? '▲' : '▼' }}</span>{{ cmp(m.key, t.k).pctText }}</span>
+                  </div>
+                </div>
+              </div>
+              <div v-if="sevList(m.key).length" class="sr-sev">
+                <span v-for="s in sevList(m.key)" :key="s.name" class="sr-sev-tag" :style="{background: s.bg, borderColor: s.bd, color: s.fg}">{{ s.name }} {{ s.value }}</span>
+              </div>
+              <div v-if="topList(m.key).length" class="sr-top">
+                <div class="sr-top-label">{{ m.topLabel }}</div>
+                <div v-for="(it, i) in topList(m.key)" :key="i" class="sr-top-row">
+                  <span class="sr-top-rank">{{ i + 1 }}</span>
+                  <span class="sr-top-name" :title="it.label">{{ it.label }}</span>
+                  <span class="sr-top-count">{{ it.count }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../host-monitor/lib/vue.min.js"></script>
+<script src="security-report-app.js?v=3"></script>
+</body>
+</html>

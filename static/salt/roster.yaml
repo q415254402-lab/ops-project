@@ -1,0 +1,16 @@
+dev-agent.opsany.com:
+  host: 47.94.196.36
+  user: root
+  port: 22
+106.15.50.194:
+  host: 106.15.50.194
+  user: root
+  port: 22
+49.233.200.40:
+  host: 49.233.200.40
+  user: root
+  port: 22
+192.168.31.64:
+  host: 192.168.31.64
+  user: 123123
+  port: 22

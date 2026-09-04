@@ -52,6 +52,7 @@ class WafAttackLog(models.Model):
         indexes = [
             models.Index(fields=['log_time', 'src_ip']),
             models.Index(fields=['dev_ip', 'log_time']),
+            models.Index(fields=['device_type', 'log_time']),
         ]
 
     def __str__(self):

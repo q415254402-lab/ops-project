@@ -8,8 +8,11 @@
   GET /vscan/vulns/          漏洞列表（分页 + 过滤：ip/name/severity/asset/os/port）
   GET /vscan/vulns/detail/   漏洞详情（pluginid）
 """
+import json
 import logging
+import time
 
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.authentication import SessionAuthentication
@@ -17,6 +20,25 @@ from rest_framework.authentication import SessionAuthentication
 from apps.cmdb.services.vscan_client import get_client, get_report_client
 
 logger = logging.getLogger('app')
+
+# 进程内 TTL 缓存（无 redis 依赖）：避免每次打开页面都实时拉 vScan 上游（单次 ~17s）
+# 2026-08-25：TTL 由 60s 放宽到 1 天（86400s）——vScan 扫描按周进行，1 天缓存足够；
+# 需要即时刷新时 GET 加 ?refresh=1/true/yes 强制回源（手动刷新）。
+_CACHE = {}
+_CACHE_TTL = 86400
+
+
+def _cache_get(key, loader, force=False):
+    """命中且未过期直接返回；force=True 时忽略缓存强制回源（手动刷新场景）。
+    loader 抛异常不缓存，交由调用方 try/except 处理。"""
+    if not force:
+        now = time.time()
+        item = _CACHE.get(key)
+        if item and now - item[0] < _CACHE_TTL:
+            return item[1]
+    val = loader()
+    _CACHE[key] = (time.time(), val)
+    return val
 
 # vScan 风险等级：0=信息/1=低/2=中/3=高/4=严重
 SEV_TEXT = {'0': '信息', '1': '低', '2': '中', '3': '高', '4': '严重'}
@@ -47,33 +69,65 @@ def _sev_out(v):
     return {'id': s, 'text': SEV_TEXT.get(s, s), 'cls': SEV_CLS.get(s, '')}
 
 
+def _parse_detail(s):
+    """vuln_list 的 detail 是 dict，同步时 json.dumps 入库；读取时还原。"""
+    if not s:
+        return {}
+    try:
+        return json.loads(s)
+    except Exception:
+        return {}
+
+
 class VScanStatsView(APIView):
-    """大屏统计"""
+    """大屏统计（2026-08-26 v2：改查本地 DB VscanVuln，秒开；不再实时拉 vScan 8-20s）
+    ⚠️ 请求路径零上游调用：漏洞聚合走 DB，任务概要来自同步 meta（sync_all 时顺带拉一次）。
+    ?refresh=1/true/yes → 后台触发一次同步（不阻塞，返回当前 DB 数据）。
+    """
     authentication_classes = [CSRFExemptSessionAuthentication]
 
     def get(self, request):
+        if request.GET.get('refresh') in ('1', 'true', 'yes'):
+            # 手动刷新：后台触发同步（非阻塞），随后仍返回当前 DB 数据
+            try:
+                from apps.cmdb.services.vscan_sys_sync import sync_trigger
+                sync_trigger()
+            except Exception:
+                logger.warning('[vscan] stats refresh trigger failed')
         try:
-            st = get_client().stats()
+            from apps.cmdb.models import VscanVuln
+            from apps.cmdb.services.vscan_client import cache_get_meta
+            total = VscanVuln.objects.count()
+            sev_qs = VscanVuln.objects.values('severity').annotate(c=Count('id'))
+            sev_dist = {str(s['severity']): s['c'] for s in sev_qs}
+            high_cnt = sum(v for k, v in sev_dist.items() if k in ('3', '4'))
+            assets_qs = VscanVuln.objects.values('ip', 'asset_name', 'os').annotate(
+                c=Count('id'), high=Count('id', filter=Q(severity__in=[3, 4])))
+            top_assets = sorted(
+                [{'name': a['asset_name'] or a['ip'] or '未知', 'ip': a['ip'] or '',
+                  'os': a['os'] or '', 'cnt': a['c'], 'high': a['high']} for a in assets_qs],
+                key=lambda x: (-x['high'], -x['cnt']))[:10]
+            recent = [{'name': v.name, 'ip': v.ip, 'asset': v.asset_name,
+                       'severity': str(v.severity),
+                       'sev_text': SEV_TEXT.get(str(v.severity), ''),
+                       'port': v.port, 'time': v.time}
+                      for v in VscanVuln.objects.order_by('-id')[:20]]
+            # 任务概要来自同步 meta（同步时拉一次，避免读路径打上游）
+            meta = cache_get_meta('vuln_sync') or {}
+            return _ok({
+                'task_total': meta.get('task_total', 0),
+                'task_running': meta.get('task_running', 0),
+                'task_finished': meta.get('task_finished', 0),
+                'vuln_total': total,
+                'high_cnt': high_cnt,
+                'sev_dist': [{'severity': SEV_TEXT.get(k, k), 'cnt': v}
+                             for k, v in sorted(sev_dist.items())],
+                'top_assets': top_assets,
+                'recent': recent,
+            })
         except Exception as e:
-            logger.exception('[vscan] stats error')
-            return _err('vScan 连接失败: {}'.format(e), 502)
-        sev_dist = [{'severity': SEV_TEXT.get(k, k), 'cnt': v}
-                    for k, v in sorted(st['sev_dist'].items())]
-        top_assets = [{'name': a['name'], 'ip': a['ip'], 'os': a['os'],
-                       'cnt': a['cnt'], 'high': a['high']} for a in st['top_assets']]
-        recent = [{'name': v['name'], 'ip': v['ip'], 'asset': v['asset_name'],
-                   'severity': v['severity'], 'sev_text': SEV_TEXT.get(str(v.get('severity')), ''),
-                   'port': v['port'], 'time': v['time']} for v in st['recent']]
-        return _ok({
-            'task_total': st['task_total'],
-            'task_running': st['task_running'],
-            'task_finished': st['task_finished'],
-            'vuln_total': st['vuln_total'],
-            'high_cnt': st['high_cnt'],
-            'sev_dist': sev_dist,
-            'top_assets': top_assets,
-            'recent': recent,
-        })
+            logger.exception('[vscan] stats DB error')
+            return _err('数据库查询失败: {}'.format(e), 502)
 
 
 class VScanTasksView(APIView):
@@ -90,26 +144,38 @@ class VScanTasksView(APIView):
 
 
 class VScanVulnsView(APIView):
-    """漏洞列表（分页 + 全量返回，前端按 f 过滤）
-    ⚠️ 2026-08-21 v2：vScan queryplugin 后端不接受任意过滤参数（实测 iTotalRecords 始终=773），
-    改为前端过滤：后端不传 f 过滤，全量分页返回，前端按 f（ip/name/severity/asset_name/port）过滤展示。
+    """漏洞列表（分页，前端按 f 过滤）
+    ⚠️ 2026-08-26 v2：改查本地 DB VscanVuln（秒开）；不再实时拉 vScan 上游。
+    漏洞列表 + 资产视图共用本端点，两者一并受益。
+    ?refresh=1/true/yes → 后台触发一次同步（不阻塞，返回当前 DB 数据）。
     """
     authentication_classes = [CSRFExemptSessionAuthentication]
 
     def get(self, request):
-        length = min(int(request.GET.get('limit') or 50), 500)
-        start = int(request.GET.get('offset') or 0)
-        res = get_client().vuln_list(None, length=length, start=start)
-        rows = []
-        for v in res['data']:
-            rows.append({
-                'asset_group': v['asset_group'], 'asset_name': v['asset_name'],
-                'ip': v['ip'], 'admin': v['admin'], 'os': v['os'],
-                'severity': _sev_out(v['severity']),
-                'name': v['name'], 'port': v['port'], 'time': v['time'],
-                'rid': v['rid'],
-            })
-        return _ok({'total': res['total'], 'data': rows})
+        if request.GET.get('refresh') in ('1', 'true', 'yes'):
+            try:
+                from apps.cmdb.services.vscan_sys_sync import sync_trigger
+                sync_trigger()
+            except Exception:
+                logger.warning('[vscan] vulns refresh trigger failed')
+        try:
+            from apps.cmdb.models import VscanVuln
+            length = min(int(request.GET.get('limit') or 500), 2000)
+            start = max(int(request.GET.get('offset') or 0), 0)
+            qs = VscanVuln.objects.all()
+            total = qs.count()
+            rows = qs.order_by('severity', 'name')[start:start + length]
+            data = [{
+                'asset_group': v.asset_group, 'asset_name': v.asset_name,
+                'ip': v.ip, 'admin': v.admin, 'os': v.os,
+                'severity': _sev_out(v.severity),
+                'name': v.name, 'port': v.port, 'time': v.time,
+                'rid': v.rid, 'detail': _parse_detail(v.detail),
+            } for v in rows]
+            return _ok({'total': total, 'data': data})
+        except Exception as e:
+            logger.exception('[vscan] vulns DB error')
+            return _err('数据库查询失败: {}'.format(e), 502)
 
 
 class VScanVulnDetailView(APIView):
@@ -137,6 +203,28 @@ class VScanVulnDetailView(APIView):
         })
 
 
+class VScanVulnSyncView(APIView):
+    """系统漏洞数据同步：懒检测 / 触发同步 / 状态查询（镜像 VScanWebSyncView）
+    GET ?action=check   → 懒检测（DB 是否有新鲜数据）
+    GET ?action=trigger → 未同步则后台触发全量同步
+    GET ?action=status  → 同步进度（building/done_tasks/total_tasks/msg/vuln_total/high_total）
+    """
+    authentication_classes = [CSRFExemptSessionAuthentication]
+
+    def get(self, request):
+        action = request.GET.get('action') or 'check'
+        from apps.cmdb.services.vscan_sys_sync import check_new_report, sync_trigger, sync_status
+        try:
+            if action == 'trigger':
+                return _ok(sync_trigger())
+            if action == 'status':
+                return _ok(sync_status())
+            return _ok(check_new_report())
+        except Exception as e:
+            logger.exception('[vscan] vuln sync error')
+            return _err('同步服务错误: {}'.format(e), 502)
+
+
 # ═══════════ WEB 漏洞（scanlogsystem，report 账号）═══════════
 def _sev_web(v):
     s = str(v if v is not None else '')
@@ -152,7 +240,9 @@ class VScanWebStatsView(APIView):
 
     def get(self, request):
         try:
-            tasks = get_report_client().web_tasks()
+            # ?refresh=1/true/yes 强制回源（手动刷新）；否则命中 1 天缓存
+            _refresh = request.GET.get('refresh') in ('1', 'true', 'yes')
+            tasks = _cache_get('vscan_web_tasks', lambda: get_report_client().web_tasks(), force=_refresh)
         except Exception as e:
             logger.exception('[vscan] web stats error')
             return _err('vScan 连接失败: {}'.format(e), 502)
@@ -189,19 +279,36 @@ class VScanWebVulnsView(APIView):
             return _err('缺少 taskid')
         sev_only = request.GET.get('sev_only')
         try:
-            from apps.cmdb.models import VscanWebVuln
-            qs = VscanWebVuln.objects.filter(taskid=int(taskid))
-            if sev_only:
-                qs = qs.filter(severity=0)
-            rows = qs.order_by('severity', 'name')[:2000]
-            data = [{
-                'severity': _sev_web(str(v.severity)),
-                'name': v.name, 'category': v.category,
-                'url': v.url, 'param': v.param, 'comment': v.comment,
-                'testcase': v.testcase, 'pluginid': str(v.pluginid),
-                'taskid': v.taskid,
-            } for v in rows]
-            return _ok({'total': len(data), 'data': data})
+            tid = int(taskid)
+            # 支持前端分页（limit/offset），默认 2000、上限 5000，避免一次性拉全量压垮
+            try:
+                limit = min(int(request.GET.get('limit', 2000) or 2000), 5000)
+                offset = max(int(request.GET.get('offset', 0) or 0), 0)
+            except (TypeError, ValueError):
+                limit, offset = 2000, 0
+            # ?refresh=1/true/yes 强制回源（手动刷新）；否则命中 1 天缓存
+            # 2026-08-25：按 (taskid, sev_only, limit, offset) 建键——新扫描产生新 taskid →
+            # 自然命中新键，不会因同步写入而读到陈旧数据；同 taskid 重复同步可用 ?refresh=1 强刷。
+            _refresh = request.GET.get('refresh') in ('1', 'true', 'yes')
+            key = ('vscan_web_vulns', tid, sev_only, limit, offset)
+
+            def _load():
+                from apps.cmdb.models import VscanWebVuln
+                qs = VscanWebVuln.objects.filter(taskid=tid)
+                if sev_only:
+                    qs = qs.filter(severity=0)
+                total = qs.count()
+                rows = qs.order_by('severity', 'name')[offset:offset + limit]
+                data = [{
+                    'severity': _sev_web(str(v.severity)),
+                    'name': v.name, 'category': v.category,
+                    'url': v.url, 'param': v.param, 'comment': v.comment,
+                    'testcase': v.testcase, 'pluginid': str(v.pluginid),
+                    'taskid': v.taskid,
+                } for v in rows]
+                return {'total': total, 'data': data, 'limit': limit, 'offset': offset}
+            payload = _cache_get(key, _load, force=_refresh)
+            return _ok(payload)
         except Exception as e:
             logger.exception('[vscan] web vulns DB error')
             return _err('数据库查询失败: {}'.format(e), 502)
@@ -372,3 +479,94 @@ class VScanWebHighView(APIView):
             'taskid': v.get('taskid'),
         } for v in res.get('data') or []]
         return _ok({'high_total': res.get('high_total', 0), 'data': rows})
+
+
+class VScanVulnExportView(APIView):
+    """系统漏洞 CSV 导出（本地 DB VscanVuln，秒开；复用前端 f 过滤：ip/name/severity/asset_name/port）
+    导出当前筛选集——所见即所导（前端漏洞列表的过滤条件原样传入）。"""
+    authentication_classes = [CSRFExemptSessionAuthentication]
+
+    COLUMNS = [
+        ('asset_group', '资产组'), ('asset_name', '资产名称'), ('ip', 'IP'),
+        ('admin', '负责人'), ('os', '操作系统'), ('severity', '风险等级'),
+        ('name', '漏洞名称'), ('port', '端口'), ('time', '发现时间'), ('rid', '漏洞ID'),
+    ]
+
+    def get(self, request):
+        import csv
+        from django.http import HttpResponse
+        from apps.cmdb.models import VscanVuln
+        qs = VscanVuln.objects.all()
+        f_ip = request.GET.get('ip')
+        f_name = request.GET.get('name')
+        f_sev = request.GET.get('severity')
+        f_asset = request.GET.get('asset_name')
+        f_port = request.GET.get('port')
+        if f_ip:
+            qs = qs.filter(ip__icontains=f_ip)
+        if f_name:
+            qs = qs.filter(name__icontains=f_name)
+        if f_sev:
+            qs = qs.filter(severity=f_sev)
+        if f_asset:
+            qs = qs.filter(asset_name__icontains=f_asset)
+        if f_port:
+            qs = qs.filter(port__icontains=f_port)
+        resp = HttpResponse(content_type='text/csv')
+        resp['Content-Type'] = 'text/csv; charset=utf-8-sig'
+        resp['Content-Disposition'] = 'attachment; filename="vscan_vulns.csv"'
+        resp.write('\ufeff')
+        writer = csv.writer(resp)
+        writer.writerow([c[1] for c in self.COLUMNS])
+        fields = [c[0] for c in self.COLUMNS]
+        for v in qs.order_by('severity', 'name').iterator(chunk_size=2000):
+            row = []
+            for fld in fields:
+                val = getattr(v, fld)
+                if fld == 'severity':
+                    val = SEV_TEXT.get(str(val), str(val))
+                row.append('' if val is None else str(val))
+            writer.writerow(row)
+        return resp
+
+
+class VScanWebVulnExportView(APIView):
+    """WEB 漏洞 CSV 导出（本地 DB VscanWebVuln；taskid 必填，sev_only='0' 仅高危）"""
+    authentication_classes = [CSRFExemptSessionAuthentication]
+
+    COLUMNS = [
+        ('severity', '风险等级'), ('name', '漏洞名称'), ('category', '分类'),
+        ('url', '漏洞URL'), ('param', '问题参数'), ('comment', '备注'),
+        ('testcase', '测试用例'), ('pluginid', 'ruleid'), ('taskid', '任务ID'),
+    ]
+
+    def get(self, request):
+        import csv
+        from django.http import HttpResponse
+        from apps.cmdb.models import VscanWebVuln
+        taskid = request.GET.get('taskid')
+        if not taskid:
+            return _err('缺少 taskid')
+        try:
+            tid = int(taskid)
+        except ValueError:
+            return _err('taskid 格式错误')
+        qs = VscanWebVuln.objects.filter(taskid=tid)
+        if request.GET.get('sev_only'):
+            qs = qs.filter(severity=0)
+        resp = HttpResponse(content_type='text/csv')
+        resp['Content-Type'] = 'text/csv; charset=utf-8-sig'
+        resp['Content-Disposition'] = 'attachment; filename="vscan_web_vulns_task%s.csv"' % tid
+        resp.write('\ufeff')
+        writer = csv.writer(resp)
+        writer.writerow([c[1] for c in self.COLUMNS])
+        fields = [c[0] for c in self.COLUMNS]
+        for v in qs.order_by('severity', 'name').iterator(chunk_size=2000):
+            row = []
+            for fld in fields:
+                val = getattr(v, fld)
+                if fld == 'severity':
+                    val = SEV_TEXT_WEB.get(str(val), str(val))
+                row.append('' if val is None else str(val))
+            writer.writerow(row)
+        return resp
