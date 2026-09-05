@@ -29,3 +29,13 @@ staticfiles/
 _seedenv/
 *.sqlite3.bak
 *.sqlite3-*
+
+# === 容器内工作备份 / 运行时产物（不入库）===
+*.bak
+*.bak.*
+*.baka
+*.bak[0-9]*
+vscan_cache/
+vscan_session*.json
+celerybeat-schedule
+celerybeat-schedule.*
